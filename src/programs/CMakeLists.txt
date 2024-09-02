@@ -6,6 +6,42 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+foreach( program aatestproguv )
+
+  if ( HAVE_CPU )
+    foreach( prec dp sp )
+      if( HAVE_${prec} )
+        ecbuild_add_executable( TARGET  ${program}-cpu-${prec}
+                                SOURCES ${program}.F90 xrd_getoptions.F90 xrd_unix_env.F90
+                                LINKER_LANGUAGE Fortran
+                                LIBS
+                                  fiat
+                                  parkind_${prec}
+                                  trans_${prec}
+        )
+        target_compile_definitions(${program}-cpu-${prec} PRIVATE VERSION="cpu")
+      endif()
+    endforeach( prec)
+  endif()
+
+  if( HAVE_GPU )
+    foreach( prec dp sp )
+      if( HAVE_${prec} )
+        ecbuild_add_executable( TARGET  ${program}-gpu-${prec}
+                                SOURCES ${program}.F90 xrd_getoptions.F90 xrd_unix_env.F90
+                                LINKER_LANGUAGE Fortran
+                                LIBS
+                                  fiat
+                                  parkind_${prec}
+                                  trans_gpu_${prec}
+                                  OpenACC::OpenACC_Fortran
+       )
+       target_compile_definitions(${program}-gpu-${prec} PRIVATE VERSION="gpu")
+       endif()
+    endforeach( prec )
+  endif( HAVE_GPU )
+endforeach( program )
+
 #foreach( program ectrans-benchmark ectrans-benchmark-ifs )
 foreach( program ectrans-benchmark )
 
