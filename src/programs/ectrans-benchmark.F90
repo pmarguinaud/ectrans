@@ -207,7 +207,7 @@ character(len=16) :: cgrid = ''
 
 #include "setup_trans0.h"
 #include "setup_trans.h"
-#include "inv_trans.h"
+#include "inv_trans1.h"
 #include "dir_trans.h"
 #include "trans_inq.h"
 #include "specnorm.h"
@@ -365,6 +365,8 @@ numll(iprused+1:nprtrv+1) = 0
 
 nflevl = numll(mysetv)
 
+print *, " nflevl = ", nflevl
+
 ivsetsc(1) = iprused
 ifld = 0
 
@@ -520,6 +522,7 @@ allocate(zgmv(nproma,nflevg,ndimgmv,ngpblks))
 allocate(zgmvs(nproma,ndimgmvs,ngpblks))
 
 zgpuv => zgmv(:,:,1:jend_vder_EW,:)
+
 zgp3a => zgmv(:,:,jbegin_sc:jend_scder_EW,:)
 zgp2  => zgmvs(:,:,:)
 
@@ -607,7 +610,8 @@ do jstep = 1, iters
   ztstep1(jstep) = timef()
   call gstats(4,0)
   if (lvordiv) then
-    call inv_trans(kresol=1, kproma=nproma, &
+
+    call inv_trans1(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
        & pspvor=zspvor,                     & ! spectral vorticity
        & pspdiv=zspdiv,                     & ! spectral divergence
@@ -622,8 +626,9 @@ do jstep = 1, iters
        & pgp2=zgp2,                         &
        & pgpuv=zgpuv,                       &
        & pgp3a=zgp3a)
+
   else
-    call inv_trans(kresol=1, kproma=nproma, &
+    call inv_trans1(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
        & pspsc3a=zspsc3a,                   & ! spectral scalars
        & ldscders=lscders,                  & ! scalar derivatives
