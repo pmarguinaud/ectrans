@@ -729,12 +729,14 @@ ENDDO
 
 dump (IF_SCALARS_G)
 
+#ifdef UNDEF
 WRITE (100+MYPROC, '(A8," ",A8," ",A8," ",A8," ",A8," ",A8)') "", "IRANK_G", &
      & "IRANK_L", "IVSET", "KIND"
 DO J = 1, SIZE (YLGP)
   WRITE (100+MYPROC, '(I8," ",I8," ",I8," ",I8," ",I8," ",I8)') J, YLGP (J)%IRANK_G, &
        & YLGP (J)%IRANK_L, YLGP (J)%IVSET, YLGP (J)%KIND
 ENDDO
+#endif
 
 CALL INV_TRANS1_CTL(IF_UV_G,IF_SCALARS_G,IF_GP,IF_FS,IF_OUT_LT,&
  & IF_UV,IF_SCALARS,IF_SCDERS,&
