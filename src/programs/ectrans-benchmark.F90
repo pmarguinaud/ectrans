@@ -201,7 +201,7 @@ logical :: ldump_values = .false.
 integer, external :: ec_mpirank
 logical :: luse_mpi = .true.
 
-INTEGER :: ICRC
+INTEGER*8 :: ICRC
 
 character(len=16) :: cgrid = ''
 
