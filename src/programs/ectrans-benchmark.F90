@@ -201,6 +201,8 @@ logical :: ldump_values = .false.
 integer, external :: ec_mpirank
 logical :: luse_mpi = .true.
 
+INTEGER*8 :: ICRC
+
 character(len=16) :: cgrid = ''
 
 !===================================================================================================
@@ -622,6 +624,12 @@ do jstep = 1, iters
        & pgp2=zgp2,                         &
        & pgpuv=zgpuv,                       &
        & pgp3a=zgp3a)
+
+    CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
+    CALL CRC64 (zgpuv, INT (SIZE (zgpuv) * KIND (zgpuv), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgpuv",ICRC
+    CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
+
+
   else
     call inv_trans(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
