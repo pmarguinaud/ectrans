@@ -64,7 +64,7 @@ USE POINTER_MOD
 
 IMPLICIT NONE
 
-INTEGER(KIND=JPIM),INTENT(IN)   :: KM,KFIELDS
+INTEGER(KIND=JPIM),INTENT(IN)   :: KM
 REAL(KIND=JPRB)   ,INTENT(OUT)  :: PIA(:,:)
 TYPE (PTRS) :: YDSP (:)
 
@@ -72,10 +72,14 @@ TYPE (PTRS) :: YDSP (:)
 INTEGER(KIND=JPIM) :: II, INM, IR, J, JFLD, ILCM, IOFF,IFLD
 
 
+LOGICAL :: LLP
+
 !     ------------------------------------------------------------------
 
 !*       1.    EXTRACT FIELDS FROM SPECTRAL ARRAYS.
 !              --------------------------------------------------
+
+LLP = .FALSE.
 
 
 ILCM = R%NSMAX+1-KM
@@ -105,4 +109,4 @@ ENDDO
 !     ------------------------------------------------------------------
 
 END SUBROUTINE PRFI1B1
-END MODULE PRFI1B_MOD
+END MODULE PRFI1B1_MOD
