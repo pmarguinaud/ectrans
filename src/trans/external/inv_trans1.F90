@@ -811,7 +811,7 @@ DO J = 1, SIZE (YLGP)
 ENDDO
 #endif
 
-!ifdef UNDEF
+#ifdef UNDEF
 WRITE (0, '(A8," ",A8," ",A8," ",A8," ",A16," ",A1)') &
      & "", "IPTR", "IPTR_NS", "ITYPE", "NAME", "P"
 DO J = 1, SIZE (YLSP)
@@ -822,7 +822,7 @@ DO J = 1, SIZE (YLSP)
   ENDIF
   WRITE (0, *)
 ENDDO
-!endif
+#endif
 
 
 CALL INV_TRANS1_CTL(IF_UV_G,IF_SCALARS_G,IF_GP,IF_FS,IF_OUT_LT,&
