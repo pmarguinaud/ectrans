@@ -792,7 +792,7 @@ ENDDO
 
 CALL INV_TRANS1_CTL(IF_GP,IF_FS,IF_OUT_LT,&
  & IF_UV,IF_SCALARS,IF_SCDERS,&
- & FSPGL_PROC,YLGP,YLSP)
+ & YLGP,YLSP,FSPGL_PROC)
 
 IF (LHOOK) CALL DR_HOOK('INV_TRANS1',1,ZHOOK_HANDLE)
 !     ------------------------------------------------------------------
