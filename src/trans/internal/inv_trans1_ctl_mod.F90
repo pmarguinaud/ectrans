@@ -87,7 +87,6 @@ USE PARKIND1  ,ONLY : JPIM     ,JPRB
 
 USE TPM_GEN         ,ONLY : NPROMATR
 USE TPM_TRANS       ,ONLY : LDIVGP, LSCDERS, LUVDER, LVORGP
-!USE TPM_DISTR
 
 USE SHUFFLE_MOD     ,ONLY : SHUFFLE
 USE FIELD_SPLIT_MOD ,ONLY : FIELD_SPLIT
@@ -97,8 +96,6 @@ USE POINTER_MOD
 !
 
 IMPLICIT NONE
-
-! Declaration of arguments
 
 INTEGER(KIND=JPIM), INTENT(IN) :: KF_GP
 INTEGER(KIND=JPIM), INTENT(IN) :: KF_FS
@@ -111,17 +108,10 @@ OPTIONAL  FSPGL_PROC
 TYPE (PTRG)                    :: YDGP (:)
 TYPE (PTRS)                    :: YDSP (:)
 
-! Local variables
-
-
-!     ------------------------------------------------------------------
-
 CALL LTINV1_CTL(KF_OUT_LT,KF_UV,KF_SCALARS,KF_SCDERS, &
  &FSPGL_PROC=FSPGL_PROC,YDGP=YDGP,YDSP=YDSP)
 
 CALL FTINV1_CTL(KF_GP,KF_FS,KF_OUT_LT,YDGP=YDGP)
-
-!     ------------------------------------------------------------------
 
 END SUBROUTINE INV_TRANS1_CTL
 END MODULE INV_TRANS1_CTL_MOD
