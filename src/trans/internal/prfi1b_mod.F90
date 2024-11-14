@@ -83,8 +83,6 @@ INTEGER(KIND=JPIM) :: II, INM, IR, J, JFLD, ILCM, IOFF,IFLD
 ILCM = R%NSMAX+1-KM
 IOFF = D%NASM0(KM)
 
-!WRITE (0, *) __FILE__, ':', __LINE__, " LOC (PSPEC (1, 1)) = ", LOC (PSPEC (1, 1))
-
 IF(PRESENT(KFLDPTR)) THEN
   DO JFLD=1,KFIELDS
     IR = 2*(JFLD-1)+1
@@ -103,21 +101,6 @@ ELSE
     !DIR$ IVDEP
     !OCL NOVREC
     DO JFLD=1,KFIELDS
-
-IF (PRESENT (YDSP)) THEN
-
-IF (ASSOCIATED (YDSP(JFLD)%P)) THEN
-  IF (LOC (YDSP(JFLD)%P (1)) /= LOC (PSPEC(JFLD,1))) THEN
-    WRITE (0, *) __FILE__, ':', __LINE__, " KM = ", KM, " JFLD = ", JFLD
-    WRITE (0, *) YDSP(JFLD)%IPTR
-    WRITE (0, '(Z16.16)') LOC (YDSP(JFLD)%P (1))
-    WRITE (0, '(Z16.16)') LOC (PSPEC(JFLD,1))
-    STOP 1
-  ENDIF
-ENDIF
-
-ENDIF
-
       IR = 2*(JFLD-1)+1
       II = IR+1
       IF (PRESENT (YDSP)) THEN
@@ -137,8 +120,6 @@ DO JFLD=1,2*KFIELDS
   PIA(2,JFLD) = 0.0_JPRB
   PIA(ILCM+3,JFLD) = 0.0_JPRB
 ENDDO
-
-!WRITE (0, *) __FILE__, ':', __LINE__ 
 
 !     ------------------------------------------------------------------
 
