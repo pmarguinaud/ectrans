@@ -10,9 +10,7 @@
 
 MODULE FSC1_MOD
 CONTAINS
-SUBROUTINE FSC1(KGL,KF_UV,KF_SCALARS,KF_SCDERS,&
- & PUV,PSCALAR,PNSDERS,PEWDERS,PUVDERS,&
- & YDGP_UV,YDGP_S,YDGP_S_NS,YDGP_S_EW,YDGP_UV_EW)
+SUBROUTINE FSC1(KGL,YDGP_UV,YDGP_S,YDGP_S_NS,YDGP_S_EW,YDGP_UV_EW)
 
 !**** *FSC1 - Division by a*cos(theta), east-west derivatives
 
@@ -58,17 +56,12 @@ USE POINTER_MOD
 !
 
 IMPLICIT NONE
-INTEGER(KIND=JPIM) , INTENT(IN) :: KGL,KF_UV,KF_SCALARS,KF_SCDERS
-REAL(KIND=JPRB) , INTENT(INOUT) :: PUV(:,:)
-REAL(KIND=JPRB) , INTENT(INOUT) :: PSCALAR(:,:)
-REAL(KIND=JPRB) , INTENT(INOUT) :: PNSDERS(:,:)
-REAL(KIND=JPRB) , INTENT(  OUT) :: PEWDERS(:,:)
-REAL(KIND=JPRB) , INTENT(  OUT) :: PUVDERS(:,:)
-TYPE (PTRS) :: YDGP_UV     (:)
-TYPE (PTRS) :: YDGP_S      (:)
-TYPE (PTRS) :: YDGP_S_NS   (:)
-TYPE (PTRS) :: YDGP_S_EW   (:)
-TYPE (PTRS) :: YDGP_UV_EW  (:)
+INTEGER(KIND=JPIM) , INTENT(IN) :: KGL
+TYPE (PTRS)                     :: YDGP_UV     (:)
+TYPE (PTRS)                     :: YDGP_S      (:)
+TYPE (PTRS)                     :: YDGP_S_NS   (:)
+TYPE (PTRS)                     :: YDGP_S_EW   (:)
+TYPE (PTRS)                     :: YDGP_UV_EW  (:)
 
 
 REAL(KIND=JPRB) :: ZACHTE,ZMUL, ZACHTE2, ZSHIFT, ZPI
@@ -109,19 +102,18 @@ IF( LATLON.AND.S%LDLL ) THEN
       ENDDO
     ENDDO
 
-    IF(KF_SCDERS > 0)THEN
-      DO JF=1,SIZE (YDGP_S_NS)
-        DO JM=0,IMEN
-          IR = ISTAGTF+2*JM+1
-          II = IR+1          
-          ! calculate amplitude and phase shift and reconstruct A,B
-          ZAMP = SQRT(YDGP_S_NS (JF)%P(IR)**2 + YDGP_S_NS (JF)%P(II)**2)
-          ZPHASE = ATAN2(YDGP_S_NS (JF)%P(II),YDGP_S_NS (JF)%P(IR)) + REAL(JM,JPRB)*ZSHIFT
-          YDGP_S_NS (JF)%P(IR) = ZAMP*COS(ZPHASE)
-          YDGP_S_NS (JF)%P(II) = ZAMP*SIN(ZPHASE)
-        ENDDO
+    DO JF=1,SIZE (YDGP_S_NS)
+      DO JM=0,IMEN
+        IR = ISTAGTF+2*JM+1
+        II = IR+1          
+        ! calculate amplitude and phase shift and reconstruct A,B
+        ZAMP = SQRT(YDGP_S_NS (JF)%P(IR)**2 + YDGP_S_NS (JF)%P(II)**2)
+        ZPHASE = ATAN2(YDGP_S_NS (JF)%P(II),YDGP_S_NS (JF)%P(IR)) + REAL(JM,JPRB)*ZSHIFT
+        YDGP_S_NS (JF)%P(IR) = ZAMP*COS(ZPHASE)
+        YDGP_S_NS (JF)%P(II) = ZAMP*SIN(ZPHASE)
       ENDDO
-    ENDIF
+    ENDDO
+
     DO JF=1,SIZE (YDGP_UV)
       DO JM=0,IMEN
         IR = ISTAGTF+2*JM+1
@@ -144,7 +136,7 @@ ENDIF
   
 !*       1.1      U AND V.
 
-IF(KF_UV > 0) THEN
+IF(SIZE (YDGP_UV) > 0) THEN
   DO JLON=ISTAGTF+1,ISTAGTF+2*(IMEN+1)
     DO JF=1,SIZE (YDGP_UV)
       YDGP_UV (JF)%P(JLON) = YDGP_UV (JF)%P(JLON)*ZACHTE2
@@ -154,7 +146,7 @@ ENDIF
 
 !*      1.2      N-S DERIVATIVES
 
-IF(KF_SCDERS > 0)THEN
+IF(SIZE (YDGP_S_NS) > 0)THEN
   DO JLON=ISTAGTF+1,ISTAGTF+2*(IMEN+1)
     DO JF=1,SIZE (YDGP_S_NS)
       YDGP_S_NS (JF)%P(JLON) = YDGP_S_NS (JF)%P(JLON)*ZACHTE2
@@ -183,7 +175,7 @@ ENDIF
 
 !*       2.2     SCALAR VARIABLES
 
-IF(KF_SCDERS > 0)THEN
+IF(SIZE (YDGP_S_EW) > 0)THEN
   DO JM=0,IMEN
     IR = ISTAGTF+2*JM+1
     II = IR+1

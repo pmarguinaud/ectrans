@@ -193,15 +193,13 @@ DO JGL=IBEG,IEND,IINC
 !    2.  Fourier space computations
 
   IF (KF_UV > 0 .OR. KF_SCDERS > 0 .OR. (LATLON.AND.S%LDLL) ) THEN
-    CALL FSC1(IGL,KF_UV,KF_SCALARS,KF_SCDERS,&
-     & ZUV,ZSCALAR,ZNSDERS,ZEWDERS,ZUVDERS,&
-     & YLGP_UV,YLGP_S,YLGP_S_NS,YLGP_S_EW,YLGP_UV_EW)
+    CALL FSC1(IGL,YLGP_UV,YLGP_S,YLGP_S_NS,YLGP_S_EW,YLGP_UV_EW)
   ENDIF
 
 !    3.  Fourier transform
 
   IF (KF_FS > 0) THEN
-    CALL FTINV(ZGTF,KF_FS,IGL) ! Watch out failures here (Cray CCE 8.6.2 ? Intel 18.0.1 ?)
+    CALL FTINV(ZGTF,KF_FS,IGL) 
   ENDIF
 ENDDO
 !$OMP END PARALLEL DO
@@ -223,8 +221,6 @@ CALL TRLTOG1(ZGTF,KF_FS,KF_GP,YDGP)
 CALL GSTATS(157,1)
 
 !     ------------------------------------------------------------------
-
-!DEALLOCATE(ZGTF)
 
 CONTAINS
 
