@@ -633,9 +633,9 @@ do jstep = 1, iters
        & pgpuv=zgpuv,                       &
        & pgp3a=zgp3a)
 
-    CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
-    CALL CRC64 (zgpuv, INT (SIZE (zgpuv) * KIND (zgpuv), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgpuv",ICRC
-    CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
+    ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
+    ICRC = 0; CALL CRC64 (zgpuv, INT (SIZE (zgpuv) * KIND (zgpuv), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgpuv",ICRC
+    ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
 
   else
     call inv_trans1(kresol=1, kproma=nproma, &
@@ -647,8 +647,8 @@ do jstep = 1, iters
        & pgp2=zgp2,                         &
        & pgp3a=zgp3a)
 
-    CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
-    CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
+    ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
+    ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
 
   endif
   call gstats(4,1)
