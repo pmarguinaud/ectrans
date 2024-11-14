@@ -609,6 +609,9 @@ do jstep = 1, iters
   ztstep1(jstep) = timef()
   call gstats(4,0)
   if (lvordiv) then
+
+    zgpuv = 0.
+
     call inv_trans(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
        & pspvor=zspvor,                     & ! spectral vorticity
@@ -628,7 +631,6 @@ do jstep = 1, iters
     ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
     ICRC = 0; CALL CRC64 (zgpuv, INT (SIZE (zgpuv) * KIND (zgpuv), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgpuv",ICRC
     ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
-
 
   else
     call inv_trans(kresol=1, kproma=nproma, &
