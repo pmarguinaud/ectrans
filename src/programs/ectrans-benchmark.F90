@@ -610,7 +610,9 @@ do jstep = 1, iters
   call gstats(4,0)
   if (lvordiv) then
 
-    zgpuv = 0.
+    zgp2 = 0. 
+    zgpuv = 0. 
+    zgp3a = 0. 
 
     call inv_trans(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
@@ -633,6 +635,10 @@ do jstep = 1, iters
     ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
 
   else
+
+    zgp2 = 0. 
+    zgp3a = 0. 
+
     call inv_trans(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
        & pspsc3a=zspsc3a,                   & ! spectral scalars
