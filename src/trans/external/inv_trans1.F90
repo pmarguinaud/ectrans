@@ -757,16 +757,20 @@ DO JPASS = 1, 2
 ENDDO
 
 
-#ifdef UNDEF
+!ifdef UNDEF
 WRITE (100+MYPROC, '(A8," ",A8," ",A8," ",A8," ",A8," ",A8," ",A8)') "", "IRANK_G", &
      & "IRANK_L", "IVSET", "TYPE", "NAME"
 DO J = 1, SIZE (YLGP)
-  WRITE (100+MYPROC, '(I8," ",I8," ",I8," ",I8," ",I8," ",A8)') &
+  WRITE (100+MYPROC, '(I8," ",I8," ",I8," ",I8," ",I8," ",A8)', ADVANCE='NO') &
  & J, YLGP (J)%IRANK_G, YLGP (J)%IRANK_L, YLGP (J)%IVSET, YLGP (J)%ITYPE, YLGP (J)%CLNAME
+  IF (ASSOCIATED (YLGP (J)%P)) THEN
+    WRITE (100+MYPROC, '(" ",Z16.16)', ADVANCE='NO') LOC (YLGP (J)%P (1, 1))
+  ENDIF
+  WRITE (100+MYPROC, *)
 ENDDO
-#endif
+!endif
 
-#ifdef UNDEF
+!ifdef UNDEF
 WRITE (100+MYPROC, '(A8," ",A8," ",A8," ",A8," ",A16," ",A1)') &
      & "", "IPTR", "IPTR_NS", "TYPE", "NAME", "P"
 DO J = 1, SIZE (YLSP)
@@ -777,7 +781,7 @@ DO J = 1, SIZE (YLSP)
   ENDIF
   WRITE (100+MYPROC, *)
 ENDDO
-#endif
+!endif
 
 
 CALL INV_TRANS1_CTL(YLGP, YLSP, FSPGL_PROC)
