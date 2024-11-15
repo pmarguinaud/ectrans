@@ -14,8 +14,6 @@ SUBROUTINE INV_TRANS1(PSPVOR,PSPDIV,PSPSCALAR,PSPSC3A,PSPSC3B,PSPSC2,&
  & KVSETSC3A,KVSETSC3B,KVSETSC2,&
  & PGPUV,PGP3A,PGP3B,PGP2)
 
-#include "dump.h"
-
 !**** *INV_TRANS1* - Inverse spectral transform.
 
 !     Purpose.
@@ -793,11 +791,6 @@ ENDDO
 CALL INV_TRANS1_CTL(YLGP, YLSP, FSPGL_PROC)
 
 IF (LHOOK) CALL DR_HOOK('INV_TRANS1',1,ZHOOK_HANDLE)
-!     ------------------------------------------------------------------
-
-!endif INTERFACE
-
-dump ('-------')
 
 CONTAINS
 
