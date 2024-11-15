@@ -645,10 +645,10 @@ DO JPASS = 1, 2
     IF (LVORGP) I = I + 1
     IF (LDIVGP) I = I + 1
     DO J = 1, SIZE (KVSETUV)
-      CALL ASSOCG (PGPUV (:,J,I+3,:), IOR (NTYPE_U, NTYPE_EW), KVSETUV (J), CDNAME='U EW')
+      CALL ASSOCG (PGPUV (:,J,I+3,:), IOR (NTYPE_U, NTYPE_EW), KVSETUV (J), CDNAME='U  EW')
     ENDDO
     DO J = 1, SIZE (KVSETUV)
-      CALL ASSOCG (PGPUV (:,J,I+4,:), IOR (NTYPE_V, NTYPE_EW), KVSETUV (J), CDNAME='V EW')
+      CALL ASSOCG (PGPUV (:,J,I+4,:), IOR (NTYPE_V, NTYPE_EW), KVSETUV (J), CDNAME='V  EW')
     ENDDO
   ENDIF
   
@@ -771,10 +771,10 @@ ENDDO
 !endif
 
 !ifdef UNDEF
-WRITE (100+MYPROC, '(A8," ",A8," ",A8," ",A8," ",A16," ",A1)') &
+WRITE (100+MYPROC, '(A8," ",A8," ",A8," ",A8," ",A8," ",A1)') &
      & "", "IPTR", "IPTR_NS", "TYPE", "NAME", "P"
 DO J = 1, SIZE (YLSP)
-  WRITE (100+MYPROC, '(I8," ",I8," ",I8," ",I8," ",A16," ",L1)', ADVANCE='NO') &
+  WRITE (100+MYPROC, '(I8," ",I8," ",I8," ",I8," ",A8," ",L1)', ADVANCE='NO') &
        & J, YLSP (J)%IPTR, YLSP (J)%IPTR_NS, YLSP (J)%ITYPE, YLSP (J)%CLNAME, ASSOCIATED (YLSP (J)%P)
   IF (ASSOCIATED (YLSP (J)%P)) THEN
     WRITE (100+MYPROC, '(" ",Z16.16)', ADVANCE='NO') LOC (YLSP (J)%P (1))
