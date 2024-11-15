@@ -377,11 +377,6 @@ IF(IF_UV > 0 .AND. LUVDER) THEN
   IF_FS = IF_FS+2*IF_UV
 ENDIF
 
-WRITE (MYPROC+100, *) __FILE__, ':', __LINE__, " IF_FS     = ", IF_FS
-WRITE (MYPROC+100, *) __FILE__, ':', __LINE__, " IF_SCDERS = ", IF_SCDERS
-WRITE (MYPROC+100, *) __FILE__, ':', __LINE__, " IF_UV     = ", IF_UV
-WRITE (MYPROC+100, *) __FILE__, ':', __LINE__, " IF_OUT_LT = ", IF_OUT_LT
-
 IF_GP = 2*IF_UV_G+IF_SCALARS_G
 IF(LSCDERS) THEN
   IF_GP  = IF_GP+2*IF_SCALARS_G
@@ -772,16 +767,16 @@ DO JPASS = 1, 2
 ENDDO
 
 
-!ifdef UNDEF
+#ifdef UNDEF
 WRITE (100+MYPROC, '(A8," ",A8," ",A8," ",A8," ",A8," ",A8," ",A8)') "", "IRANK_G", &
      & "IRANK_L", "IVSET", "TYPE", "NAME"
 DO J = 1, SIZE (YLGP)
   WRITE (100+MYPROC, '(I8," ",I8," ",I8," ",I8," ",I8," ",A8)') &
  & J, YLGP (J)%IRANK_G, YLGP (J)%IRANK_L, YLGP (J)%IVSET, YLGP (J)%ITYPE, YLGP (J)%CLNAME
 ENDDO
-!endif
+#endif
 
-!ifdef UNDEF
+#ifdef UNDEF
 WRITE (100+MYPROC, '(A8," ",A8," ",A8," ",A8," ",A16," ",A1)') &
      & "", "IPTR", "IPTR_NS", "TYPE", "NAME", "P"
 DO J = 1, SIZE (YLSP)
@@ -792,10 +787,10 @@ DO J = 1, SIZE (YLSP)
   ENDIF
   WRITE (100+MYPROC, *)
 ENDDO
-!endif
+#endif
 
 
-CALL INV_TRANS1_CTL(IF_GP,IF_FS,IF_OUT_LT,YLGP,YLSP,FSPGL_PROC)
+CALL INV_TRANS1_CTL(YLGP, YLSP, FSPGL_PROC)
 
 IF (LHOOK) CALL DR_HOOK('INV_TRANS1',1,ZHOOK_HANDLE)
 !     ------------------------------------------------------------------
