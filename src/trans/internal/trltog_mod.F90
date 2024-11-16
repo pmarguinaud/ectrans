@@ -523,14 +523,6 @@ REAL(KIND=JPHOOK) :: ZHOOK_HANDLE_BAR
 
 !     ------------------------------------------------------------------
 
-IUVLEVS = 0
-IUVPARS = 0
-IGP2PARS = 0
-IGP3APARS = 0
-IGP3ALEVS = 0
-IGP3BPARS = 0
-IGP3BLEVS = 0
-
 !*       0.    Some initializations
 !              --------------------
 

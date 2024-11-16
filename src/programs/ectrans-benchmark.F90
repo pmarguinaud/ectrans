@@ -137,6 +137,8 @@ integer(kind=jpim) :: nstats_mem = 0
 integer(kind=jpim) :: ntrace_stats = 0
 integer(kind=jpim) :: nprnt_stats = 1
 
+character*16 :: clinv_trans
+
 ! The multiplier of the machine epsilon used as a tolerance for correctness checking
 ! ncheck = 0 (the default) means that correctness checking is disabled
 integer(kind=jpim) :: ncheck = 0
@@ -212,6 +214,7 @@ character(len=16) :: cgrid = ''
 #include "setup_trans0.h"
 #include "setup_trans.h"
 #include "inv_trans1.h"
+#include "inv_trans.h"
 #include "dir_trans.h"
 #include "trans_inq.h"
 #include "specnorm.h"
@@ -618,35 +621,70 @@ do jstep = 1, iters
   zgpuv = 0. 
   zgp3a = 0. 
 
-  if (lvordiv) then
+  CALL GETENV ('INV_TRANS', clinv_trans)
 
-    call inv_trans1(kresol=1, kproma=nproma, &
-       & pspsc2=zspsc2,                     & ! spectral surface pressure
-       & pspvor=zspvor,                     & ! spectral vorticity
-       & pspdiv=zspdiv,                     & ! spectral divergence
-       & pspsc3a=zspsc3a,                   & ! spectral scalars
-       & ldscders=lscders,                  &
-       & ldvorgp=.false.,                   & ! no gridpoint vorticity
-       & lddivgp=.false.,                   & ! no gridpoint divergence
-       & lduvder=luvders,                   &
-       & kvsetuv=ivset,                     &
-       & kvsetsc2=ivsetsc,                  &
-       & kvsetsc3a=ivset,                   &
-       & pgp2=zgp2,                         &
-       & pgpuv=zgpuv,                       &
-       & pgp3a=zgp3a)
+  if (clinv_trans == '1') then
+    if (lvordiv) then
 
+      call inv_trans1(kresol=1, kproma=nproma, &
+         & pspsc2=zspsc2,                     & ! spectral surface pressure
+         & pspvor=zspvor,                     & ! spectral vorticity
+         & pspdiv=zspdiv,                     & ! spectral divergence
+         & pspsc3a=zspsc3a,                   & ! spectral scalars
+         & ldscders=lscders,                  &
+         & ldvorgp=.false.,                   & ! no gridpoint vorticity
+         & lddivgp=.false.,                   & ! no gridpoint divergence
+         & lduvder=luvders,                   &
+         & kvsetuv=ivset,                     &
+         & kvsetsc2=ivsetsc,                  &
+         & kvsetsc3a=ivset,                   &
+         & pgp2=zgp2,                         &
+         & pgpuv=zgpuv,                       &
+         & pgp3a=zgp3a)
+
+    else
+
+      call inv_trans1(kresol=1, kproma=nproma, &
+         & pspsc2=zspsc2,                     & ! spectral surface pressure
+         & pspsc3a=zspsc3a,                   & ! spectral scalars
+         & ldscders=lscders,                  & ! scalar derivatives
+         & kvsetsc2=ivsetsc,                  &
+         & kvsetsc3a=ivset,                   &
+         & pgp2=zgp2,                         &
+         & pgp3a=zgp3a)
+
+    endif
   else
+    if (lvordiv) then
 
-    call inv_trans1(kresol=1, kproma=nproma, &
-       & pspsc2=zspsc2,                     & ! spectral surface pressure
-       & pspsc3a=zspsc3a,                   & ! spectral scalars
-       & ldscders=lscders,                  & ! scalar derivatives
-       & kvsetsc2=ivsetsc,                  &
-       & kvsetsc3a=ivset,                   &
-       & pgp2=zgp2,                         &
-       & pgp3a=zgp3a)
+      call inv_trans(kresol=1, kproma=nproma, &
+         & pspsc2=zspsc2,                     & ! spectral surface pressure
+         & pspvor=zspvor,                     & ! spectral vorticity
+         & pspdiv=zspdiv,                     & ! spectral divergence
+         & pspsc3a=zspsc3a,                   & ! spectral scalars
+         & ldscders=lscders,                  &
+         & ldvorgp=.false.,                   & ! no gridpoint vorticity
+         & lddivgp=.false.,                   & ! no gridpoint divergence
+         & lduvder=luvders,                   &
+         & kvsetuv=ivset,                     &
+         & kvsetsc2=ivsetsc,                  &
+         & kvsetsc3a=ivset,                   &
+         & pgp2=zgp2,                         &
+         & pgpuv=zgpuv,                       &
+         & pgp3a=zgp3a)
 
+    else
+
+      call inv_trans(kresol=1, kproma=nproma, &
+         & pspsc2=zspsc2,                     & ! spectral surface pressure
+         & pspsc3a=zspsc3a,                   & ! spectral scalars
+         & ldscders=lscders,                  & ! scalar derivatives
+         & kvsetsc2=ivsetsc,                  &
+         & kvsetsc3a=ivset,                   &
+         & pgp2=zgp2,                         &
+         & pgp3a=zgp3a)
+
+    endif
   endif
 
   if (lvordiv) then
