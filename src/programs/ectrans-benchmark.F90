@@ -75,7 +75,7 @@ integer(kind=jpim) :: ifld
 integer(kind=jpim) :: jroc
 integer(kind=jpim) :: jb
 integer(kind=jpim) :: nspec2g
-integer(kind=jpim) :: i
+integer(kind=jpim) :: i, j
 integer(kind=jpim) :: ja
 integer(kind=jpim) :: ib
 integer(kind=jpim) :: jprtrv
@@ -99,6 +99,8 @@ real(kind=jprb), allocatable, target :: zgmvs  (:,:,:)   ! Single level fields a
 real(kind=jprb), pointer :: zgp3a (:,:,:,:) ! Multilevel fields at t and t-dt
 real(kind=jprb), pointer :: zgpuv   (:,:,:,:) ! Multilevel fields at t and t-dt
 real(kind=jprb), pointer :: zgp2 (:,:,:) ! Single level fields at t and t-dt
+
+real(kind=jprb), allocatable :: zz (:)
 
 ! Spectral space data structures
 real(kind=jprb), allocatable, target :: sp3d(:,:,:)
@@ -611,11 +613,12 @@ do jstep = 1, iters
 
   ztstep1(jstep) = timef()
   call gstats(4,0)
-  if (lvordiv) then
 
-    zgp2 = 0. 
-    zgpuv = 0. 
-    zgp3a = 0. 
+  zgp2 = 0. 
+  zgpuv = 0. 
+  zgp3a = 0. 
+
+  if (lvordiv) then
 
     call inv_trans1(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
@@ -633,14 +636,7 @@ do jstep = 1, iters
        & pgpuv=zgpuv,                       &
        & pgp3a=zgp3a)
 
-    ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
-    ICRC = 0; CALL CRC64 (zgpuv, INT (SIZE (zgpuv) * KIND (zgpuv), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgpuv",ICRC
-    ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
-
   else
-
-    zgp2 = 0. 
-    zgp3a = 0. 
 
     call inv_trans1(kresol=1, kproma=nproma, &
        & pspsc2=zspsc2,                     & ! spectral surface pressure
@@ -651,10 +647,23 @@ do jstep = 1, iters
        & pgp2=zgp2,                         &
        & pgp3a=zgp3a)
 
-    ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
-    ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
-
   endif
+
+  if (lvordiv) then
+  ICRC = 0; CALL CRC64 (zgpuv, INT (SIZE (zgpuv) * KIND (zgpuv), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgpuv",ICRC
+  endif
+  ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
+  ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
+  DO ifld = 1, SIZE (zgp3a, 3)
+    DO jlev = 1, SIZE (zgp3a, 2)
+      ICRC = 0
+      CALL CRC64 (zgp3a (:,jlev,ifld,:), INT (SIZE (zgp3a (:,jlev,ifld,:)) * KIND (zgp3a), 8), ICRC)
+      WRITE (*, '(A10," ",I6," ",I6," = ",Z16.16," ",E30.20," ",E30.20)') &
+     & "zgp3a", ifld, jlev, ICRC, MINVAL (zgp3a (:,jlev,ifld,:)), MAXVAL (zgp3a (:,jlev,ifld,:))
+    ENDDO
+  ENDDO
+  CALL FLUSH
+
   call gstats(4,1)
 
   ztstep1(jstep) = (timef() - ztstep1(jstep))/1000.0_jprd
@@ -1262,6 +1271,7 @@ subroutine initialize_spectral_arrays(nsmax, zsp, sp3d)
   do i = 1, nflevl
     do j = 1, nfield
       call initialize_2d_spectral_field(nsmax, sp3d(i,:,j))
+      sp3d(i,:,j) = sp3d(i,:,j) * ((sum (numll (1:mysetv-1)) + i) + nflevg * j)
     end do
   end do
 
