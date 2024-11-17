@@ -224,6 +224,8 @@ character(len=16) :: cgrid = ''
 
 !===================================================================================================
 
+call mkl_serv_intel_cpu_true
+
 luse_mpi = detect_mpirun()
 
 ! Setup
