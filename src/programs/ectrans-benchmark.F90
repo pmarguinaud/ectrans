@@ -132,6 +132,7 @@ logical :: lscders = .false.
 logical :: luvders = .false.
 logical :: lprint_norms = .false. ! Calculate and print spectral norms
 logical :: lmeminfo = .false. ! Show information from FIAT routine ec_meminfo at the end
+logical :: lllatlon = .false.
 
 integer(kind=jpim) :: nstats_mem = 0
 integer(kind=jpim) :: ntrace_stats = 0
@@ -208,6 +209,7 @@ logical :: luse_mpi = .true.
 INTEGER*8 :: ICRC
 
 character(len=16) :: cgrid = ''
+logical :: llll
 
 !===================================================================================================
 
@@ -230,9 +232,9 @@ luse_mpi = detect_mpirun()
 
 ! Setup
 call get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, lscders, luvders, &
-  & luseflt, nproma, verbosity, ldump_values, lprint_norms, lmeminfo, nprtrv, nprtrw, ncheck)
+  & luseflt, nproma, verbosity, ldump_values, lprint_norms, lmeminfo, nprtrv, nprtrw, ncheck, lllatlon)
 if (cgrid == '') cgrid = cubic_octahedral_gaussian_grid(nsmax)
-call parse_grid(cgrid, ndgl, nloen)
+call parse_grid(cgrid, ndgl, nloen, llll)
 nflevg = nlev
 
 !===================================================================================================
@@ -410,7 +412,7 @@ call gstats(1, 1)
 call gstats(2, 0)
 call setup_trans(ksmax=nsmax, kdgl=ndgl, kloen=nloen, ldsplit=.true.,          &
   &                 ldusefftw=lfftw, lduserpnm=luserpnm, ldkeeprpnm=lkeeprpnm, &
-  &                 lduseflt=luseflt)
+  &                 lduseflt=luseflt, ldll=llll)
 call gstats(2, 1)
 
 call trans_inq(kspec2=nspec2, kspec2g=nspec2g, kgptot=ngptot, kgptotg=ngptotg)
@@ -629,6 +631,7 @@ do jstep = 1, iters
     if (lvordiv) then
 
       call inv_trans1(kresol=1, kproma=nproma, &
+         & ldlatlon=lllatlon,                 &
          & pspsc2=zspsc2,                     & ! spectral surface pressure
          & pspvor=zspvor,                     & ! spectral vorticity
          & pspdiv=zspdiv,                     & ! spectral divergence
@@ -647,6 +650,7 @@ do jstep = 1, iters
     else
 
       call inv_trans1(kresol=1, kproma=nproma, &
+         & ldlatlon=lllatlon,                 &
          & pspsc2=zspsc2,                     & ! spectral surface pressure
          & pspsc3a=zspsc3a,                   & ! spectral scalars
          & ldscders=lscders,                  & ! scalar derivatives
@@ -660,6 +664,7 @@ do jstep = 1, iters
     if (lvordiv) then
 
       call inv_trans(kresol=1, kproma=nproma, &
+         & ldlatlon=lllatlon,                 &
          & pspsc2=zspsc2,                     & ! spectral surface pressure
          & pspvor=zspvor,                     & ! spectral vorticity
          & pspdiv=zspdiv,                     & ! spectral divergence
@@ -678,6 +683,7 @@ do jstep = 1, iters
     else
 
       call inv_trans(kresol=1, kproma=nproma, &
+         & ldlatlon=lllatlon,                 &
          & pspsc2=zspsc2,                     & ! spectral surface pressure
          & pspsc3a=zspsc3a,                   & ! spectral scalars
          & ldscders=lscders,                  & ! scalar derivatives
@@ -1010,22 +1016,30 @@ contains
 
 !===================================================================================================
 
-subroutine parse_grid(cgrid,ndgl,nloen)
+subroutine parse_grid(cgrid,ndgl,nloen,ldll)
 
   character(len=*) :: cgrid
   integer, intent(inout) :: ndgl
   integer, intent(inout), allocatable, target :: nloen(:)
+  logical, intent(inout) :: ldll
   integer :: ios
   integer :: gaussian_number
   real*8, parameter :: pi = 3.141592653589793_8
   integer, pointer :: nrgri (:)
   namelist / namrgri / nrgri
   read(cgrid(2:len_trim(cgrid)),*,IOSTAT=ios) gaussian_number
+  ldll = .false.
   if (ios==0) then
     ndgl = 2 * gaussian_number
     allocate(nloen(ndgl))
     if (cgrid(1:1) == 'F') then ! Regular Gaussian grid
       nloen(:) = gaussian_number * 4
+      return
+    elseif (cgrid(1:1) == 'L') then ! Regular lat/lon grid
+      deallocate (nloen)
+      allocate (nloen (ndgl+2))
+      nloen(:) = gaussian_number * 4
+      ldll = .true.
       return
     elseif (cgrid(1:1) == 'O') then ! Octahedral Gaussian grid
       do i = 1, ndgl / 2
@@ -1100,7 +1114,7 @@ end subroutine
 
 subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, lscders, luvders, &
   &                                   luseflt, nproma, verbosity, ldump_values, lprint_norms, &
-  &                                   lmeminfo, nprtrv, nprtrw, ncheck)
+  &                                   lmeminfo, nprtrv, nprtrw, ncheck, ldlatlon)
 
   integer, intent(inout) :: nsmax           ! Spectral truncation
   character(len=16), intent(inout) :: cgrid ! Spectral truncation
@@ -1121,6 +1135,7 @@ subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, 
   integer, intent(inout) :: nprtrw          ! Size of W set (spectral decomposition)
   integer, intent(inout) :: ncheck          ! The multiplier of the machine epsilon used as a
                                             ! tolerance for correctness checking
+  logical, intent(inout) :: ldlatlon
 
   character(len=128) :: carg          ! Storage variable for command line arguments
   integer            :: iarg = 1      ! Argument index
@@ -1165,6 +1180,7 @@ subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, 
       case('--meminfo'); lmeminfo = .true.
       case('--nprtrv'); nprtrv = get_int_value('--nprtrv', iarg)
       case('--nprtrw'); nprtrw = get_int_value('--nprtrw', iarg)
+      case('--latlon'); ldlatlon = .true.
       case('-c', '--check'); ncheck = get_int_value('-c', iarg)
       case default
         call parsing_failed("Unrecognised argument: " // trim(carg))
