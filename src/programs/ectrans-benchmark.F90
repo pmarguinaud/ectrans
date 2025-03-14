@@ -84,6 +84,8 @@ integer(kind=jpim), allocatable :: nloen(:), nprcids(:)
 integer(kind=jpim) :: myproc, jj
 integer :: jstep
 
+logical :: ldir_trans1 = .false.
+
 real(kind=jprd) :: ztinit, ztloop, timef, ztstepmax, ztstepmin, ztstepavg, ztstepmed
 real(kind=jprd) :: ztstepmax1, ztstepmin1, ztstepavg1, ztstepmed1
 real(kind=jprd) :: ztstepmax2, ztstepmin2, ztstepavg2, ztstepmed2
@@ -115,7 +117,7 @@ logical :: ltrace_stats = .false.
 logical :: lstats_omp = .false.
 logical :: lstats_comms = .false.
 logical :: lstats_mpl = .false.
-logical :: lstats = .true. ! gstats statistics
+logical :: lstats = .false. ! gstats statistics
 logical :: lbarrier_stats = .false.
 logical :: lbarrier_stats2 = .false.
 logical :: ldetailed_stats = .false.
@@ -142,7 +144,7 @@ integer(kind=jpim) :: ncheck = 0
 logical :: lmpoff = .false. ! Message passing switch
 
 ! Verbosity level (0 or 1)
-integer :: verbosity = 0
+integer :: verbosity = -1
 
 real(kind=jprb) :: zra = 6371229._jprb
 
@@ -225,7 +227,10 @@ luse_mpi = detect_mpirun()
 
 ! Setup
 call get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, lscders, luvders, &
-  & luseflt, nproma, verbosity, ldump_values, lprint_norms, lmeminfo, nprtrv, nprtrw, ncheck)
+  & luseflt, nproma, verbosity, ldump_values, lprint_norms, lmeminfo, nprtrv, nprtrw, ncheck, ldir_trans1)
+
+print *, " ldir_trans1 = ", ldir_trans1
+
 if (cgrid == '') cgrid = cubic_octahedral_gaussian_grid(nsmax)
 call parse_grid(cgrid, ndgl, nloen)
 nflevg = nlev
@@ -591,8 +596,10 @@ ztstepavg2 = 0._jprd
 ztstepmax2 = 0._jprd
 ztstepmin2 = 9999999999999999._jprd
 
+if (verbosity > 0) then
 write(nout,'(a)') '======= Start of spectral transforms  ======='
 write(nout,'(" ")')
+endif
 
 ztloop = timef()
 
@@ -610,50 +617,17 @@ do jstep = 1, iters
 
   ztstep1(jstep) = timef()
   call gstats(4,0)
-  if (lvordiv) then
 
-    zgp2 = 0. 
-    zgpuv = 0. 
-    zgp3a = 0. 
+  zgp2 = 0. 
+  zgp3a = 0. 
 
-    call inv_trans(kresol=1, kproma=nproma, &
-       & pspsc2=zspsc2,                     & ! spectral surface pressure
-       & pspvor=zspvor,                     & ! spectral vorticity
-       & pspdiv=zspdiv,                     & ! spectral divergence
-       & pspsc3a=zspsc3a,                   & ! spectral scalars
-       & ldscders=lscders,                  &
-       & ldvorgp=.false.,                   & ! no gridpoint vorticity
-       & lddivgp=.false.,                   & ! no gridpoint divergence
-       & lduvder=luvders,                   &
-       & kvsetuv=ivset,                     &
-       & kvsetsc2=ivsetsc,                  &
-       & kvsetsc3a=ivset,                   &
-       & pgp2=zgp2,                         &
-       & pgpuv=zgpuv,                       &
-       & pgp3a=zgp3a)
+  call inv_trans(kresol=1, kproma=nproma, &
+     & pspsc3a=zspsc3a,                   & ! spectral scalars
+     & kvsetsc3a=ivset,                   &
+     & pgp3a=zgp3a)
 
-    ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
-    ICRC = 0; CALL CRC64 (zgpuv, INT (SIZE (zgpuv) * KIND (zgpuv), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgpuv",ICRC
-    ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
+  ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
 
-  else
-
-    zgp2 = 0. 
-    zgp3a = 0. 
-
-    call inv_trans(kresol=1, kproma=nproma, &
-       & pspsc2=zspsc2,                     & ! spectral surface pressure
-       & pspsc3a=zspsc3a,                   & ! spectral scalars
-       & ldscders=lscders,                  & ! scalar derivatives
-       & kvsetsc2=ivsetsc,                  &
-       & kvsetsc3a=ivset,                   &
-       & pgp2=zgp2,                         &
-       & pgp3a=zgp3a)
-
-    ICRC = 0; CALL CRC64 (zgp2 , INT (SIZE (zgp2 ) * KIND (zgp2 ), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp2" ,ICRC
-    ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
-
-  endif
   call gstats(4,1)
 
   ztstep1(jstep) = (timef() - ztstep1(jstep))/1000.0_jprd
@@ -677,28 +651,23 @@ do jstep = 1, iters
   ztstep2(jstep) = timef()
 
   call gstats(5,0)
-  if (lvordiv) then
-    call dir_trans(kresol=1, kproma=nproma, &
-      & pgp2=zgmvs(:,1:1,:),                &
-      & pgpuv=zgpuv(:,:,1:2,:),             &
-      & pgp3a=zgp3a(:,:,1:nfld,:),          &
-      & pspvor=zspvor,                      &
-      & pspdiv=zspdiv,                      &
-      & pspsc2=zspsc2,                      &
-      & pspsc3a=zspsc3a,                    &
-      & kvsetuv=ivset,                      &
-      & kvsetsc2=ivsetsc,                   &
-      & kvsetsc3a=ivset)
+
+  if (ldir_trans1) then
+  call dir_trans1(kresol=1, kproma=nproma, &
+    & pgp3a=zgp3a(:,:,1:nfld,:),           &
+    & pspsc3a=zspsc3a,                     &
+    & kvsetsc3a=ivset)
   else
-    call dir_trans(kresol=1, kproma=nproma, &
-      & pgp2=zgmvs(:,1:1,:),                &
-      & pgp3a=zgp3a(:,:,1:nfld,:),          &
-      & pspsc2=zspsc2,                      &
-      & pspsc3a=zspsc3a,                    &
-      & kvsetsc2=ivsetsc,                   &
-      & kvsetsc3a=ivset)
+  call dir_trans(kresol=1, kproma=nproma, &
+    & pgp3a=zgp3a(:,:,1:nfld,:),          &
+    & pspsc3a=zspsc3a,                    &
+    & kvsetsc3a=ivset)
   endif
+
   call gstats(5,1)
+
+  ICRC = 0; CALL CRC64 (zspsc3a, INT (SIZE (zspsc3a) * KIND (zspsc3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zspsc3a",ICRC
+
   ztstep2(jstep) = (timef() - ztstep2(jstep))/1000.0_jprd
 
   !=================================================================================================
@@ -755,7 +724,7 @@ do jstep = 1, iters
                 & " | zspdiv max err="e10.3," | zspsc3a max err="e10.3," | zspsc2 max err="e10.3)') &
                 &  jstep, ztstep(jstep), zmaxerr(3), zmaxerr(2), zmaxerr(4), zmaxerr(1)
     call gstats(6,1)
-  else
+  elseif (verbosity >=0) then
     write(nout,'("Time step ",i6," took", f8.4)') jstep, ztstep(jstep)
   endif
   call gstats(3,1)
@@ -765,9 +734,11 @@ enddo
 
 ztloop = (timef() - ztloop)/1000.0_jprd
 
+if (verbosity >= 0) then
 write(nout,'(" ")')
 write(nout,'(a)') '======= End of spectral transforms  ======='
 write(nout,'(" ")')
+endif
 
 if (lprint_norms .or. ncheck > 0) then
   call specnorm(pspec=zspvor(1:nflevl,:),    pnorm=znormvor, kvset=ivset)
@@ -868,6 +839,7 @@ ztstep2(:) = ztstep2(:)/real(nproc,jprd)
 call sort(ztstep2,iters)
 ztstepmed2 = ztstep2(iters/2)
 
+if (verbosity >= 0) then
 write(nout,'(a)') '======= Start of time step stats ======='
 write(nout,'(" ")')
 write(nout,'("Inverse transforms")')
@@ -894,6 +866,7 @@ write(nout,'("loop (s): ",f8.4)') ztloop
 write(nout,'(" ")')
 write(nout,'(a)') '======= End of time step stats ======='
 write(nout,'(" ")')
+endif
 
 if (lstack) then
   ! Gather stack usage statistics
@@ -1050,7 +1023,7 @@ end subroutine
 
 subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, lscders, luvders, &
   &                                   luseflt, nproma, verbosity, ldump_values, lprint_norms, &
-  &                                   lmeminfo, nprtrv, nprtrw, ncheck)
+  &                                   lmeminfo, nprtrv, nprtrw, ncheck, ldir_trans1)
 
   integer, intent(inout) :: nsmax           ! Spectral truncation
   character(len=16), intent(inout) :: cgrid ! Spectral truncation
@@ -1071,7 +1044,7 @@ subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, 
   integer, intent(inout) :: nprtrw          ! Size of W set (spectral decomposition)
   integer, intent(inout) :: ncheck          ! The multiplier of the machine epsilon used as a
                                             ! tolerance for correctness checking
-
+  logical, intent(inout) :: ldir_trans1
   character(len=128) :: carg          ! Storage variable for command line arguments
   integer            :: iarg = 1      ! Argument index
   integer            :: stat          ! For storing success status of string->integer conversion
@@ -1081,6 +1054,8 @@ subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, 
     call get_command_argument(iarg, carg)
 
     select case(carg)
+      case ('-ldir_trans1')
+        ldir_trans1 = .true.
       ! Parse help argument
       case('-h', '--help')
         if (luse_mpi) call mpl_init(ldinfo=.false.)
@@ -1390,6 +1365,60 @@ subroutine gstats_labels
   call gstats_label(400, '   ', 'GSTATS         - GSTATS itself')
 
 end subroutine gstats_labels
+
+subroutine dir_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a)
+
+use yomhook
+
+integer :: kresol, kproma, kvsetsc3a (:)
+real*8 :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
+
+integer :: n3a, nflevl, nflevg, nspec2, ngpblks
+
+integer, allocatable :: ivsetsc2 (:)
+real*8, allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
+
+integer :: jlev, jfld
+
+real (kind=jphook) :: zhook_handle
+
+if (lhook) call dr_hook ('dir_trans1', 0, zhook_handle)
+
+nflevg  = size (pgp3a, 2)
+nflevl  = size (pspsc3a, 1)
+nspec2  = size (pspsc3a, 2)
+n3a     = size (pgp3a, 3)
+ngpblks = size (pgp3a, 4)
+
+if (size (pgp3a, 1) /= kproma) stop 1
+if (size (kvsetsc3a) /= nflevg) stop 1
+if (size (pspsc3a, 3) /= n3a) stop 1
+
+allocate (ivsetsc2 (n3a * nflevg), zspsc2 (n3a * nflevl, nspec2), zgp2 (kproma, n3a * nflevg, ngpblks))
+
+do jlev = 1, nflevg
+  do jfld = 1, n3a
+    ivsetsc2 (jfld + n3a * (jlev - 1)) = kvsetsc3a (jlev)
+  enddo
+enddo
+
+do jlev = 1, nflevg
+  do jfld = 1, n3a
+    zgp2 (:, jfld + n3a * (jlev - 1), :) = pgp3a (:, jlev, jfld, :)
+  enddo
+enddo
+
+call dir_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
+
+do jlev = 1, nflevl
+  do jfld = 1, n3a
+    pspsc3a (jlev, :, jfld) = zspsc2 (jfld + n3a * (jlev - 1), :)
+  enddo
+enddo
+
+if (lhook) call dr_hook ('dir_trans1', 1, zhook_handle)
+
+end subroutine
 
 end program transform_test
 
