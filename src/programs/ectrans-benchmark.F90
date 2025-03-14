@@ -219,6 +219,8 @@ character(len=16) :: cgrid = ''
 
 !===================================================================================================
 
+call mkl_serv_intel_cpu_true
+
 luse_mpi = detect_mpirun()
 
 ! Setup
@@ -962,9 +964,11 @@ subroutine parse_grid(cgrid,ndgl,nloen)
 
   character(len=*) :: cgrid
   integer, intent(inout) :: ndgl
-  integer, intent(inout), allocatable :: nloen(:)
+  integer, intent(inout), allocatable, target :: nloen(:)
   integer :: ios
   integer :: gaussian_number
+  integer, pointer :: nrgri (:)
+  namelist / namrgri / nrgri
   read(cgrid(2:len_trim(cgrid)),*,IOSTAT=ios) gaussian_number
   if (ios==0) then
     ndgl = 2 * gaussian_number
@@ -972,14 +976,20 @@ subroutine parse_grid(cgrid,ndgl,nloen)
     if (cgrid(1:1) == 'F') then ! Regular Gaussian grid
       nloen(:) = gaussian_number * 4
       return
-    endif
-    if (cgrid(1:1) == 'O') then ! Octahedral Gaussian grid
+    elseif (cgrid(1:1) == 'O') then ! Octahedral Gaussian grid
       do i = 1, ndgl / 2
         nloen(i) = 20 + 4 * (i - 1)
         nloen(ndgl - i + 1) = nloen(i)
       end do
       return
+    elseif (cgrid(1:1) == 'N') then ! Read from namelist
+      nrgri => nloen
+      open (4, file=cgrid, status='old')
+      read (4, nml=namrgri)
+      close (4)
+      return
     endif
+
   endif
   call parsing_failed("ERROR: Unsupported grid specified: "// trim(cgrid))
 
