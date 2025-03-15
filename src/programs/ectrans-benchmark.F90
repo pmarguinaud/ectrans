@@ -626,13 +626,16 @@ do jstep = 1, iters
   zgp2 = 0. 
   zgp3a = 0. 
 
-  if (use_trans1) then
+  if (.false. .and. use_trans1) then
   call inv_trans1(kresol=1, kproma=nproma, &
      & pspsc3a=zspsc3a,                    & ! spectral scalars
      & kvsetsc3a=ivset,                    &
      & pgp3a=zgp3a)
   else
   call inv_trans(kresol=1, kproma=nproma, &
+     & pspsc2=zspsc2,                     &
+     & kvsetsc2=ivsetsc,                  &
+     & pgp2=zgp2,                         &
      & pspsc3a=zspsc3a,                   & ! spectral scalars
      & kvsetsc3a=ivset,                   &
      & pgp3a=zgp3a)
@@ -641,6 +644,7 @@ do jstep = 1, iters
   ! Remove trash at end of last block
   iend = nproma * ngpblks - ngptot
   zgp3a (iend+1:, :, :, ngpblks) = 0
+  zgp2 (iend+1:, :, ngpblks) = 0
 
   do jfld = 1, size (zgp3a, 3)
   do jlev = 1, nflevg
@@ -648,6 +652,12 @@ do jstep = 1, iters
     call crc64 (zgp3a (:, jlev, jfld, :), int (size (zgp3a (:, jlev, jfld, :)) * kind (zgp3a), 8), icrc)
     write (77, '(A," (",I0,", ",I0,") = ",z16.16)') "zgp3a", jlev, jfld, icrc
   enddo
+  enddo
+
+  do jfld = 1, size (zgp2, 2)
+    icrc = 0
+    call crc64 (zgp2 (:, jfld, :), int (size (zgp2 (:, jfld, :)) * kind (zgp2), 8), icrc)
+    write (77, '(A," (",I0,") = ",z16.16)') "zgp2", jfld, icrc
   enddo
 
   call gstats(4,1)
@@ -676,12 +686,18 @@ do jstep = 1, iters
 
   if (use_trans1) then
   call dir_trans1(kresol=1, kproma=nproma, &
+    & pspsc2=zspsc2,                       &
+    & kvsetsc2=ivsetsc,                    &
+    & pgp2=zgp2,                           &
     & pgp3a=zgp3a(:,:,1:nfld,:),           &
     & pspsc3a=zspsc3a,                     &
     & kvsetsc3a=ivset)
   else
-  call dir_trans(kresol=1, kproma=nproma, &
-    & pgp3a=zgp3a(:,:,1:nfld,:),          &
+  call dir_trans(kresol=1, kproma=nproma, & 
+    & pspsc2=zspsc2,                      &
+    & kvsetsc2=ivsetsc,                   &
+    & pgp2=zgp2,                          &
+    & pgp3a=zgp3a,                        &
     & pspsc3a=zspsc3a,                    &
     & kvsetsc3a=ivset)
   endif
@@ -694,6 +710,12 @@ do jstep = 1, iters
     call crc64 (zspsc3a (jlev, :, jfld), int (size (zspsc3a (jlev, :, jfld)) * kind (zspsc3a), 8), icrc) 
     write (77, '(A," (",I0,", ",I0,") = ",z16.16)') "zspsc3a", jlev, jfld, icrc
   enddo
+  enddo
+
+  do jfld = 1, size (zspsc2, 1)
+    icrc = 0
+    call crc64 (zspsc2 (jfld, :), int (size (zspsc2 (jfld, :)) * kind (zspsc2), 8), icrc) 
+    write (77, '(A," (",I0,") = ",z16.16)') "zspsc2", jfld, icrc
   enddo
 
   ztstep2(jstep) = (timef() - ztstep2(jstep))/1000.0_jprd
@@ -1400,17 +1422,17 @@ subroutine gstats_labels
 
 end subroutine gstats_labels
 
-subroutine dir_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a)
+subroutine dir_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a, kvsetsc2, pgp2, pspsc2)
 
 use yomhook
 
-integer :: kresol, kproma, kvsetsc3a (:)
-real*8 :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
+integer, optional :: kresol, kproma, kvsetsc3a (:), kvsetsc2 (:)
+real(kind=jprb), optional :: pgp3a (:,:,:,:), pspsc3a (:,:,:), pgp2 (:,:,:), pspsc2 (:,:)
 
-integer :: n3a, nflevl, nflevg, nspec2, ngpblks
+integer :: n2g, n2l, n3a, nflevl, nflevg, nspec2, ngpblks
 
 integer, allocatable :: ivsetsc2 (:)
-real*8, allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
+real(kind=jprb), allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
 
 integer :: jlev, jfld
 
@@ -1422,31 +1444,50 @@ nflevg  = size (pgp3a, 2)
 nflevl  = size (pspsc3a, 1)
 nspec2  = size (pspsc3a, 2)
 n3a     = size (pgp3a, 3)
+n2g     = size (kvsetsc2)
+n2l     = count (kvsetsc2 == mysetv)
 ngpblks = size (pgp3a, 4)
 
 if (size (pgp3a, 1) /= kproma) stop 1
 if (size (kvsetsc3a) /= nflevg) stop 1
 if (size (pspsc3a, 3) /= n3a) stop 1
+if (size (pgp2, 2) /= n2g) stop 1
+if (size (pgp2, 3) /= ngpblks) stop 1
+if (size (pgp2, 1) /= kproma) stop 1
 
-allocate (ivsetsc2 (n3a * nflevg), zspsc2 (n3a * nflevl, nspec2), zgp2 (kproma, n3a * nflevg, ngpblks))
+allocate (ivsetsc2 (n2g + n3a * nflevg), &
+          zspsc2 (n2l + n3a * nflevl, nspec2), &
+          zgp2 (kproma, n2g + n3a * nflevg, ngpblks))
 
-do jlev = 1, nflevg
-  do jfld = 1, n3a
-    ivsetsc2 (jfld + n3a * (jlev - 1)) = kvsetsc3a (jlev)
-  enddo
+do jfld = 1, n2g
+  ivsetsc2 (jfld) = kvsetsc2 (jfld)
 enddo
 
 do jlev = 1, nflevg
   do jfld = 1, n3a
-    zgp2 (:, jfld + n3a * (jlev - 1), :) = pgp3a (:, jlev, jfld, :)
+    ivsetsc2 (n2g + jfld + n3a * (jlev - 1)) = kvsetsc3a (jlev)
+  enddo
+enddo
+
+do jfld = 1, n2g
+  zgp2 (:, jfld, :) = pgp2 (:, jfld, :)
+enddo
+
+do jlev = 1, nflevg
+  do jfld = 1, n3a
+    zgp2 (:, n2g + jfld + n3a * (jlev - 1), :) = pgp3a (:, jlev, jfld, :)
   enddo
 enddo
 
 call dir_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
 
+do jfld = 1, n2l
+  pspsc2 (jfld, :) = zspsc2 (jfld, :)
+enddo
+
 do jlev = 1, nflevl
   do jfld = 1, n3a
-    pspsc3a (jlev, :, jfld) = zspsc2 (jfld + n3a * (jlev - 1), :)
+    pspsc3a (jlev, :, jfld) = zspsc2 (n2l + jfld + n3a * (jlev - 1), :)
   enddo
 enddo
 
@@ -1459,7 +1500,7 @@ subroutine inv_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a)
 use yomhook
 
 integer :: kresol, kproma, kvsetsc3a (:)
-real*8, target :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
+real(kind=jprb), target :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
 
 type spp
   real(kind=jprb), pointer :: z (:) => null ()
@@ -1476,7 +1517,7 @@ type (gpp), allocatable :: ylgpp (:)
 integer :: n3a, nflevl, nflevg, nspec2, ngpblks
 
 integer, allocatable :: ivsetsc2 (:)
-real*8, allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
+real(kind=jprb), allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
 
 integer :: jlev, jfld, jfld2, nfld2g, nfld2l
 
