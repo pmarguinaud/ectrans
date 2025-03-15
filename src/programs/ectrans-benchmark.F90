@@ -84,7 +84,7 @@ integer(kind=jpim), allocatable :: nloen(:), nprcids(:)
 integer(kind=jpim) :: myproc, jj
 integer :: jstep
 
-logical :: ldir_trans1 = .false.
+logical :: use_trans1 = .false.
 
 real(kind=jprd) :: ztinit, ztloop, timef, ztstepmax, ztstepmin, ztstepavg, ztstepmed
 real(kind=jprd) :: ztstepmax1, ztstepmin1, ztstepavg1, ztstepmed1
@@ -203,7 +203,8 @@ logical :: ldump_values = .false.
 integer, external :: ec_mpirank
 logical :: luse_mpi = .true.
 
-INTEGER*8 :: ICRC
+integer*8 :: icrc
+integer :: jfld, jblk, iend
 
 character(len=16) :: cgrid = ''
 
@@ -227,9 +228,9 @@ luse_mpi = detect_mpirun()
 
 ! Setup
 call get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, lscders, luvders, &
-  & luseflt, nproma, verbosity, ldump_values, lprint_norms, lmeminfo, nprtrv, nprtrw, ncheck, ldir_trans1)
+  & luseflt, nproma, verbosity, ldump_values, lprint_norms, lmeminfo, nprtrv, nprtrw, ncheck, use_trans1)
 
-print *, " ldir_trans1 = ", ldir_trans1
+print *, " use_trans1 = ", use_trans1
 
 if (cgrid == '') cgrid = cubic_octahedral_gaussian_grid(nsmax)
 call parse_grid(cgrid, ndgl, nloen)
@@ -621,12 +622,29 @@ do jstep = 1, iters
   zgp2 = 0. 
   zgp3a = 0. 
 
+  if (use_trans1) then
+  call inv_trans1(kresol=1, kproma=nproma, &
+     & pspsc3a=zspsc3a,                    & ! spectral scalars
+     & kvsetsc3a=ivset,                    &
+     & pgp3a=zgp3a)
+  else
   call inv_trans(kresol=1, kproma=nproma, &
      & pspsc3a=zspsc3a,                   & ! spectral scalars
      & kvsetsc3a=ivset,                   &
      & pgp3a=zgp3a)
+  endif
 
-  ICRC = 0; CALL CRC64 (zgp3a, INT (SIZE (zgp3a) * KIND (zgp3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zgp3a",ICRC
+  ! Remove trash at end of last block
+  iend = nproma * ngpblks - ngptot
+  zgp3a (iend+1:, :, :, ngpblks) = 0
+
+  do jfld = 1, size (zgp3a, 3)
+  do jlev = 1, nflevg
+    icrc = 0
+    call crc64 (zgp3a (:, jlev, jfld, :), int (size (zgp3a (:, jlev, jfld, :)) * kind (zgp3a), 8), icrc)
+    write (*, '(A," (",I0,", ",I0,") = ",z16.16)') "zgp3a", jlev, jfld, icrc
+  enddo
+  enddo
 
   call gstats(4,1)
 
@@ -652,7 +670,7 @@ do jstep = 1, iters
 
   call gstats(5,0)
 
-  if (ldir_trans1) then
+  if (use_trans1) then
   call dir_trans1(kresol=1, kproma=nproma, &
     & pgp3a=zgp3a(:,:,1:nfld,:),           &
     & pspsc3a=zspsc3a,                     &
@@ -666,7 +684,13 @@ do jstep = 1, iters
 
   call gstats(5,1)
 
-  ICRC = 0; CALL CRC64 (zspsc3a, INT (SIZE (zspsc3a) * KIND (zspsc3a), 8), ICRC); WRITE (*, '(A10," = ",Z16.16)') "zspsc3a",ICRC
+  do jfld = 1, size (zspsc3a, 3)
+  do jlev = 1, nflevl
+    icrc = 0
+    call crc64 (zspsc3a (jlev, :, jfld), int (size (zspsc3a (jlev, :, jfld)) * kind (zspsc3a), 8), icrc) 
+    write (*, '(A," (",I0,", ",I0,") = ",z16.16)') "zspsc3a", jlev, jfld, icrc
+  enddo
+  enddo
 
   ztstep2(jstep) = (timef() - ztstep2(jstep))/1000.0_jprd
 
@@ -1023,7 +1047,7 @@ end subroutine
 
 subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, lscders, luvders, &
   &                                   luseflt, nproma, verbosity, ldump_values, lprint_norms, &
-  &                                   lmeminfo, nprtrv, nprtrw, ncheck, ldir_trans1)
+  &                                   lmeminfo, nprtrv, nprtrw, ncheck, use_trans1)
 
   integer, intent(inout) :: nsmax           ! Spectral truncation
   character(len=16), intent(inout) :: cgrid ! Spectral truncation
@@ -1044,7 +1068,7 @@ subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, 
   integer, intent(inout) :: nprtrw          ! Size of W set (spectral decomposition)
   integer, intent(inout) :: ncheck          ! The multiplier of the machine epsilon used as a
                                             ! tolerance for correctness checking
-  logical, intent(inout) :: ldir_trans1
+  logical, intent(inout) :: use_trans1
   character(len=128) :: carg          ! Storage variable for command line arguments
   integer            :: iarg = 1      ! Argument index
   integer            :: stat          ! For storing success status of string->integer conversion
@@ -1054,8 +1078,8 @@ subroutine get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, 
     call get_command_argument(iarg, carg)
 
     select case(carg)
-      case ('-ldir_trans1')
-        ldir_trans1 = .true.
+      case ('-use_trans1')
+        use_trans1 = .true.
       ! Parse help argument
       case('-h', '--help')
         if (luse_mpi) call mpl_init(ldinfo=.false.)
@@ -1231,8 +1255,9 @@ subroutine initialize_spectral_arrays(nsmax, zsp, sp3d)
 
   integer(kind=jpim) :: nflevl
   integer(kind=jpim) :: nfield
+  real(kind=jprb) :: zfact
 
-  integer :: i, j
+  integer :: i, j, jlevg
 
   nflevl = size(sp3d, 1)
   nfield = size(sp3d, 3)
@@ -1244,6 +1269,9 @@ subroutine initialize_spectral_arrays(nsmax, zsp, sp3d)
   do i = 1, nflevl
     do j = 1, nfield
       call initialize_2d_spectral_field(nsmax, sp3d(i,:,j))
+      jlevg = sum (numll (1:mysetv-1)) + i
+      zfact = jlevg * 10000 + j
+      sp3d(i,:,j) = sp3d(i,:,j) * zfact
     end do
   end do
 
@@ -1417,6 +1445,60 @@ do jlev = 1, nflevl
 enddo
 
 if (lhook) call dr_hook ('dir_trans1', 1, zhook_handle)
+
+end subroutine
+
+subroutine inv_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a)
+
+use yomhook
+
+integer :: kresol, kproma, kvsetsc3a (:)
+real*8 :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
+
+integer :: n3a, nflevl, nflevg, nspec2, ngpblks
+
+integer, allocatable :: ivsetsc2 (:)
+real*8, allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
+
+integer :: jlev, jfld
+
+real (kind=jphook) :: zhook_handle
+
+if (lhook) call dr_hook ('inv_trans1', 0, zhook_handle)
+
+nflevg  = size (pgp3a, 2)
+nflevl  = size (pspsc3a, 1)
+nspec2  = size (pspsc3a, 2)
+n3a     = size (pgp3a, 3)
+ngpblks = size (pgp3a, 4)
+
+if (size (pgp3a, 1) /= kproma) stop 1
+if (size (kvsetsc3a) /= nflevg) stop 1
+if (size (pspsc3a, 3) /= n3a) stop 1
+
+allocate (ivsetsc2 (n3a * nflevg), zspsc2 (n3a * nflevl, nspec2), zgp2 (kproma, n3a * nflevg, ngpblks))
+
+do jlev = 1, nflevg
+  do jfld = 1, n3a
+    ivsetsc2 (jfld + n3a * (jlev - 1)) = kvsetsc3a (jlev)
+  enddo
+enddo
+
+do jlev = 1, nflevl
+  do jfld = 1, n3a
+    zspsc2 (jfld + n3a * (jlev - 1), :) = pspsc3a (jlev, :, jfld) 
+  enddo
+enddo
+
+call inv_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
+
+do jlev = 1, nflevg
+  do jfld = 1, n3a
+    pgp3a (:, jlev, jfld, :) = zgp2 (:, jfld + n3a * (jlev - 1), :)
+  enddo
+enddo
+
+if (lhook) call dr_hook ('inv_trans1', 1, zhook_handle)
 
 end subroutine
 
