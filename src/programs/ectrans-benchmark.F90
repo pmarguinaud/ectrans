@@ -1459,14 +1459,26 @@ subroutine inv_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a)
 use yomhook
 
 integer :: kresol, kproma, kvsetsc3a (:)
-real*8 :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
+real*8, target :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
+
+type spp
+  real(kind=jprb), pointer :: z (:) => null ()
+end type
+
+type gpp
+  real(kind=jprb), pointer :: z (:, :) => null ()
+  integer :: ivset = -1
+end type
+
+type (spp), allocatable :: ylspp (:)
+type (gpp), allocatable :: ylgpp (:)
 
 integer :: n3a, nflevl, nflevg, nspec2, ngpblks
 
 integer, allocatable :: ivsetsc2 (:)
 real*8, allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
 
-integer :: jlev, jfld
+integer :: jlev, jfld, jfld2, nfld2g, nfld2l
 
 real (kind=jphook) :: zhook_handle
 
@@ -1482,26 +1494,38 @@ if (size (pgp3a, 1) /= kproma) stop 1
 if (size (kvsetsc3a) /= nflevg) stop 1
 if (size (pspsc3a, 3) /= n3a) stop 1
 
-allocate (ivsetsc2 (n3a * nflevg), zspsc2 (n3a * nflevl, nspec2), zgp2 (kproma, n3a * nflevg, ngpblks))
+nfld2l = n3a * nflevl
+nfld2g = n3a * nflevg
 
-do jlev = 1, nflevg
-  do jfld = 1, n3a
-    ivsetsc2 (jfld + n3a * (jlev - 1)) = kvsetsc3a (jlev)
-  enddo
-enddo
+allocate (ivsetsc2 (nfld2g), zspsc2 (nfld2l, nspec2), zgp2 (kproma, nfld2g, ngpblks))
+
+allocate (ylspp (nfld2l), ylgpp (nfld2g))
 
 do jlev = 1, nflevl
   do jfld = 1, n3a
-    zspsc2 (jfld + n3a * (jlev - 1), :) = pspsc3a (jlev, :, jfld) 
+    jfld2 = jfld + n3a * (jlev - 1)
+    ylspp (jfld2)%z => pspsc3a (jlev, :, jfld)
   enddo
 enddo
 
-call inv_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
-
 do jlev = 1, nflevg
   do jfld = 1, n3a
-    pgp3a (:, jlev, jfld, :) = zgp2 (:, jfld + n3a * (jlev - 1), :)
+    jfld2 = jfld + n3a * (jlev - 1)
+    ylgpp (jfld2)%z => pgp3a (:, jlev, jfld, :)
+    ylgpp (jfld2)%ivset = kvsetsc3a (jlev)
   enddo
+enddo
+
+do jfld2 = 1, nfld2l
+  zspsc2 (jfld2, :) = ylspp (jfld2)%z (:)
+enddo
+
+ivsetsc2 = ylgpp (:)%ivset
+
+call inv_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
+
+do jfld2 = 1, nfld2g
+  ylgpp (jfld2)%z (:, :) = zgp2 (:, jfld2, :)
 enddo
 
 if (lhook) call dr_hook ('inv_trans1', 1, zhook_handle)
