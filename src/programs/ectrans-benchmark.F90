@@ -1536,7 +1536,7 @@ integer :: n2g, n2l, n3a, nflevl, nflevg, nspec2, ngpblks
 integer, allocatable :: ivsetscx (:)
 real(kind=jprb), allocatable :: zspscx (:,:), zgpx (:,:,:)
 
-integer :: jlev, jfld, jfldx, nfld2g, nfld2l
+integer :: jlev, jfld, jfldx, nfldxg, nfldxl
 
 real (kind=jphook) :: zhook_handle
 
@@ -1569,12 +1569,12 @@ if (size (pgp2, 3) /= ngpblks) stop 1
 if (size (pgp2, 1) /= kproma) stop 1
 endif
 
-nfld2l = n2l + n3a * nflevl
-nfld2g = n2g + n3a * nflevg
+nfldxl = n2l + n3a * nflevl
+nfldxg = n2g + n3a * nflevg
 
-allocate (ivsetscx (nfld2g), zspscx (nfld2l, nspec2), zgpx (kproma, nfld2g, ngpblks))
+allocate (ivsetscx (nfldxg), zspscx (nfldxl, nspec2), zgpx (kproma, nfldxg, ngpblks))
 
-allocate (ylspp (nfld2l), ylgpp (nfld2g))
+allocate (ylspp (nfldxl), ylgpp (nfldxg))
 
 do jfld = 1, n2l
   jfldx = jfld
@@ -1602,7 +1602,7 @@ do jlev = 1, nflevg
   enddo
 enddo
 
-do jfldx = 1, nfld2l
+do jfldx = 1, nfldxl
   zspscx (jfldx, :) = ylspp (jfldx)%z (:)
 enddo
 
@@ -1610,7 +1610,7 @@ ivsetscx = ylgpp (:)%ivset
 
 call inv_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetscx, pspsc2=zspscx, pgp2=zgpx)
 
-do jfldx = 1, nfld2g
+do jfldx = 1, nfldxg
   ylgpp (jfldx)%z (:, :) = zgpx (:, jfldx, :)
 enddo
 
