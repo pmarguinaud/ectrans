@@ -626,8 +626,11 @@ do jstep = 1, iters
   zgp2 = 0. 
   zgp3a = 0. 
 
-  if (.false. .and. use_trans1) then
+  if (use_trans1) then
   call inv_trans1(kresol=1, kproma=nproma, &
+     & pspsc2=zspsc2,                      &
+     & kvsetsc2=ivsetsc,                   &
+     & pgp2=zgp2,                          &
      & pspsc3a=zspsc3a,                    & ! spectral scalars
      & kvsetsc3a=ivset,                    &
      & pgp3a=zgp3a)
@@ -1495,12 +1498,12 @@ if (lhook) call dr_hook ('dir_trans1', 1, zhook_handle)
 
 end subroutine
 
-subroutine inv_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a)
+subroutine inv_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a, kvsetsc2, pgp2, pspsc2)
 
 use yomhook
 
-integer :: kresol, kproma, kvsetsc3a (:)
-real(kind=jprb), target :: pgp3a (:,:,:,:), pspsc3a (:,:,:)
+integer, optional :: kresol, kproma, kvsetsc3a (:), kvsetsc2 (:)
+real(kind=jprb), target, optional :: pgp3a (:,:,:,:), pspsc3a (:,:,:), pgp2 (:,:,:), pspsc2 (:,:)
 
 type spp
   real(kind=jprb), pointer :: z (:) => null ()
@@ -1514,12 +1517,12 @@ end type
 type (spp), allocatable :: ylspp (:)
 type (gpp), allocatable :: ylgpp (:)
 
-integer :: n3a, nflevl, nflevg, nspec2, ngpblks
+integer :: n2g, n2l, n3a, nflevl, nflevg, nspec2, ngpblks
 
 integer, allocatable :: ivsetsc2 (:)
 real(kind=jprb), allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
 
-integer :: jlev, jfld, jfld2, nfld2g, nfld2l
+integer :: jlev, jfld, jfldx, nfld2g, nfld2l
 
 real (kind=jphook) :: zhook_handle
 
@@ -1530,43 +1533,60 @@ nflevl  = size (pspsc3a, 1)
 nspec2  = size (pspsc3a, 2)
 n3a     = size (pgp3a, 3)
 ngpblks = size (pgp3a, 4)
+n2g     = size (kvsetsc2)
+n2l     = count (kvsetsc2 == mysetv)
+ngpblks = size (pgp3a, 4)
 
 if (size (pgp3a, 1) /= kproma) stop 1
 if (size (kvsetsc3a) /= nflevg) stop 1
 if (size (pspsc3a, 3) /= n3a) stop 1
+if (size (pgp2, 2) /= n2g) stop 1
+if (size (pgp2, 3) /= ngpblks) stop 1
+if (size (pgp2, 1) /= kproma) stop 1
 
-nfld2l = n3a * nflevl
-nfld2g = n3a * nflevg
+nfld2l = n2l + n3a * nflevl
+nfld2g = n2g + n3a * nflevg
 
 allocate (ivsetsc2 (nfld2g), zspsc2 (nfld2l, nspec2), zgp2 (kproma, nfld2g, ngpblks))
 
 allocate (ylspp (nfld2l), ylgpp (nfld2g))
 
+do jfld = 1, n2l
+  jfldx = jfld
+  ylspp (jfldx)%z => pspsc2 (jfld, :)
+enddo
+
 do jlev = 1, nflevl
   do jfld = 1, n3a
-    jfld2 = jfld + n3a * (jlev - 1)
-    ylspp (jfld2)%z => pspsc3a (jlev, :, jfld)
+    jfldx = n2l + jfld + n3a * (jlev - 1)
+    ylspp (jfldx)%z => pspsc3a (jlev, :, jfld)
   enddo
+enddo
+
+do jfld = 1, n2g
+  jfldx = jfld
+  ylgpp (jfldx)%z => pgp2 (:, jfld, :)
+  ylgpp (jfldx)%ivset = kvsetsc2 (jfld)
 enddo
 
 do jlev = 1, nflevg
   do jfld = 1, n3a
-    jfld2 = jfld + n3a * (jlev - 1)
-    ylgpp (jfld2)%z => pgp3a (:, jlev, jfld, :)
-    ylgpp (jfld2)%ivset = kvsetsc3a (jlev)
+    jfldx = n2g + jfld + n3a * (jlev - 1)
+    ylgpp (jfldx)%z => pgp3a (:, jlev, jfld, :)
+    ylgpp (jfldx)%ivset = kvsetsc3a (jlev)
   enddo
 enddo
 
-do jfld2 = 1, nfld2l
-  zspsc2 (jfld2, :) = ylspp (jfld2)%z (:)
+do jfldx = 1, nfld2l
+  zspsc2 (jfldx, :) = ylspp (jfldx)%z (:)
 enddo
 
 ivsetsc2 = ylgpp (:)%ivset
 
 call inv_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
 
-do jfld2 = 1, nfld2g
-  ylgpp (jfld2)%z (:, :) = zgp2 (:, jfld2, :)
+do jfldx = 1, nfld2g
+  ylgpp (jfldx)%z (:, :) = zgp2 (:, jfldx, :)
 enddo
 
 if (lhook) call dr_hook ('inv_trans1', 1, zhook_handle)
