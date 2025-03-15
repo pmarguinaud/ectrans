@@ -1429,13 +1429,14 @@ subroutine dir_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a, kvsetsc2, pgp2
 
 use yomhook
 
-integer, optional :: kresol, kproma, kvsetsc3a (:), kvsetsc2 (:)
+integer :: kresol, kproma
+integer, optional :: kvsetsc3a (:), kvsetsc2 (:)
 real(kind=jprb), optional :: pgp3a (:,:,:,:), pspsc3a (:,:,:), pgp2 (:,:,:), pspsc2 (:,:)
 
 integer :: n2g, n2l, n3a, nflevl, nflevg, nspec2, ngpblks
 
-integer, allocatable :: ivsetsc2 (:)
-real(kind=jprb), allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
+integer, allocatable :: ivsetscx (:)
+real(kind=jprb), allocatable :: zspscx (:,:), zgpx (:,:,:)
 
 integer :: jlev, jfld
 
@@ -1443,54 +1444,66 @@ real (kind=jphook) :: zhook_handle
 
 if (lhook) call dr_hook ('dir_trans1', 0, zhook_handle)
 
+nflevg = 0
+nflevl = 0
+n3a    = 0
+
+if (present (kvsetsc3a) .and. present (pspsc3a) .and. present (pgp3a)) then
 nflevg  = size (pgp3a, 2)
 nflevl  = size (pspsc3a, 1)
 nspec2  = size (pspsc3a, 2)
 n3a     = size (pgp3a, 3)
-n2g     = size (kvsetsc2)
-n2l     = count (kvsetsc2 == mysetv)
 ngpblks = size (pgp3a, 4)
-
 if (size (pgp3a, 1) /= kproma) stop 1
 if (size (kvsetsc3a) /= nflevg) stop 1
 if (size (pspsc3a, 3) /= n3a) stop 1
+endif
+
+n2g = 0
+n2l = 0
+
+if (present (kvsetsc2) .and. present (pspsc2) .and. present (pgp2)) then
+n2g     = size (kvsetsc2)
+n2l     = count (kvsetsc2 == mysetv)
+ngpblks = size (pgp2, 3)
 if (size (pgp2, 2) /= n2g) stop 1
 if (size (pgp2, 3) /= ngpblks) stop 1
 if (size (pgp2, 1) /= kproma) stop 1
+endif
 
-allocate (ivsetsc2 (n2g + n3a * nflevg), &
-          zspsc2 (n2l + n3a * nflevl, nspec2), &
-          zgp2 (kproma, n2g + n3a * nflevg, ngpblks))
+allocate (ivsetscx (n2g + n3a * nflevg), &
+          zspscx (n2l + n3a * nflevl, nspec2), &
+          zgpx (kproma, n2g + n3a * nflevg, ngpblks))
 
 do jfld = 1, n2g
-  ivsetsc2 (jfld) = kvsetsc2 (jfld)
+  ivsetscx (jfld) = kvsetsc2 (jfld)
 enddo
 
 do jlev = 1, nflevg
   do jfld = 1, n3a
-    ivsetsc2 (n2g + jfld + n3a * (jlev - 1)) = kvsetsc3a (jlev)
+    ivsetscx (n2g + jfld + n3a * (jlev - 1)) = kvsetsc3a (jlev)
   enddo
 enddo
 
 do jfld = 1, n2g
-  zgp2 (:, jfld, :) = pgp2 (:, jfld, :)
+  zgpx (:, jfld, :) = pgp2 (:, jfld, :)
 enddo
 
 do jlev = 1, nflevg
   do jfld = 1, n3a
-    zgp2 (:, n2g + jfld + n3a * (jlev - 1), :) = pgp3a (:, jlev, jfld, :)
+    zgpx (:, n2g + jfld + n3a * (jlev - 1), :) = pgp3a (:, jlev, jfld, :)
   enddo
 enddo
 
-call dir_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
+call dir_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetscx, pspsc2=zspscx, pgp2=zgpx)
 
 do jfld = 1, n2l
-  pspsc2 (jfld, :) = zspsc2 (jfld, :)
+  pspsc2 (jfld, :) = zspscx (jfld, :)
 enddo
 
 do jlev = 1, nflevl
   do jfld = 1, n3a
-    pspsc3a (jlev, :, jfld) = zspsc2 (n2l + jfld + n3a * (jlev - 1), :)
+    pspsc3a (jlev, :, jfld) = zspscx (n2l + jfld + n3a * (jlev - 1), :)
   enddo
 enddo
 
@@ -1502,7 +1515,8 @@ subroutine inv_trans1 (kresol, kproma, pgp3a, pspsc3a, kvsetsc3a, kvsetsc2, pgp2
 
 use yomhook
 
-integer, optional :: kresol, kproma, kvsetsc3a (:), kvsetsc2 (:)
+integer :: kresol, kproma
+integer, optional :: kvsetsc3a (:), kvsetsc2 (:)
 real(kind=jprb), target, optional :: pgp3a (:,:,:,:), pspsc3a (:,:,:), pgp2 (:,:,:), pspsc2 (:,:)
 
 type spp
@@ -1519,8 +1533,8 @@ type (gpp), allocatable :: ylgpp (:)
 
 integer :: n2g, n2l, n3a, nflevl, nflevg, nspec2, ngpblks
 
-integer, allocatable :: ivsetsc2 (:)
-real(kind=jprb), allocatable :: zspsc2 (:,:), zgp2 (:,:,:)
+integer, allocatable :: ivsetscx (:)
+real(kind=jprb), allocatable :: zspscx (:,:), zgpx (:,:,:)
 
 integer :: jlev, jfld, jfldx, nfld2g, nfld2l
 
@@ -1528,26 +1542,37 @@ real (kind=jphook) :: zhook_handle
 
 if (lhook) call dr_hook ('inv_trans1', 0, zhook_handle)
 
+nflevg = 0
+nflevl = 0
+n3a    = 0
+
+if (present (kvsetsc3a) .and. present (pspsc3a) .and. present (pgp3a)) then
 nflevg  = size (pgp3a, 2)
 nflevl  = size (pspsc3a, 1)
 nspec2  = size (pspsc3a, 2)
 n3a     = size (pgp3a, 3)
 ngpblks = size (pgp3a, 4)
-n2g     = size (kvsetsc2)
-n2l     = count (kvsetsc2 == mysetv)
-ngpblks = size (pgp3a, 4)
-
 if (size (pgp3a, 1) /= kproma) stop 1
 if (size (kvsetsc3a) /= nflevg) stop 1
 if (size (pspsc3a, 3) /= n3a) stop 1
+endif
+
+n2g = 0
+n2l = 0
+
+if (present (kvsetsc2) .and. present (pspsc2) .and. present (pgp2)) then
+n2g     = size (kvsetsc2)
+n2l     = count (kvsetsc2 == mysetv)
+ngpblks = size (pgp2, 3)
 if (size (pgp2, 2) /= n2g) stop 1
 if (size (pgp2, 3) /= ngpblks) stop 1
 if (size (pgp2, 1) /= kproma) stop 1
+endif
 
 nfld2l = n2l + n3a * nflevl
 nfld2g = n2g + n3a * nflevg
 
-allocate (ivsetsc2 (nfld2g), zspsc2 (nfld2l, nspec2), zgp2 (kproma, nfld2g, ngpblks))
+allocate (ivsetscx (nfld2g), zspscx (nfld2l, nspec2), zgpx (kproma, nfld2g, ngpblks))
 
 allocate (ylspp (nfld2l), ylgpp (nfld2g))
 
@@ -1578,15 +1603,15 @@ do jlev = 1, nflevg
 enddo
 
 do jfldx = 1, nfld2l
-  zspsc2 (jfldx, :) = ylspp (jfldx)%z (:)
+  zspscx (jfldx, :) = ylspp (jfldx)%z (:)
 enddo
 
-ivsetsc2 = ylgpp (:)%ivset
+ivsetscx = ylgpp (:)%ivset
 
-call inv_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetsc2, pspsc2=zspsc2, pgp2=zgp2)
+call inv_trans (kresol=kresol, kproma=kproma, kvsetsc2=ivsetscx, pspsc2=zspscx, pgp2=zgpx)
 
 do jfldx = 1, nfld2g
-  ylgpp (jfldx)%z (:, :) = zgp2 (:, jfldx, :)
+  ylgpp (jfldx)%z (:, :) = zgpx (:, jfldx, :)
 enddo
 
 if (lhook) call dr_hook ('inv_trans1', 1, zhook_handle)
