@@ -205,6 +205,7 @@ logical :: luse_mpi = .true.
 
 integer*8 :: icrc
 integer :: jfld, jblk, iend
+character*64 :: clfile
 
 character(len=16) :: cgrid = ''
 
@@ -230,7 +231,6 @@ luse_mpi = detect_mpirun()
 call get_command_line_arguments(nsmax, cgrid, iters, nfld, nlev, lvordiv, lscders, luvders, &
   & luseflt, nproma, verbosity, ldump_values, lprint_norms, lmeminfo, nprtrv, nprtrw, ncheck, use_trans1)
 
-print *, " use_trans1 = ", use_trans1
 
 if (cgrid == '') cgrid = cubic_octahedral_gaussian_grid(nsmax)
 call parse_grid(cgrid, ndgl, nloen)
@@ -248,6 +248,10 @@ else
   mpl_comm = -1
 endif
 nthread = oml_max_threads()
+
+write (clfile, '("trans.",I6.6,".dat")') myproc
+open (77, file=trim (clfile), form='formatted')
+write (77, *) " use_trans1 = ", use_trans1
 
 call dr_hook_init()
 
@@ -642,7 +646,7 @@ do jstep = 1, iters
   do jlev = 1, nflevg
     icrc = 0
     call crc64 (zgp3a (:, jlev, jfld, :), int (size (zgp3a (:, jlev, jfld, :)) * kind (zgp3a), 8), icrc)
-    write (*, '(A," (",I0,", ",I0,") = ",z16.16)') "zgp3a", jlev, jfld, icrc
+    write (77, '(A," (",I0,", ",I0,") = ",z16.16)') "zgp3a", jlev, jfld, icrc
   enddo
   enddo
 
@@ -688,7 +692,7 @@ do jstep = 1, iters
   do jlev = 1, nflevl
     icrc = 0
     call crc64 (zspsc3a (jlev, :, jfld), int (size (zspsc3a (jlev, :, jfld)) * kind (zspsc3a), 8), icrc) 
-    write (*, '(A," (",I0,", ",I0,") = ",z16.16)') "zspsc3a", jlev, jfld, icrc
+    write (77, '(A," (",I0,", ",I0,") = ",z16.16)') "zspsc3a", jlev, jfld, icrc
   enddo
   enddo
 
@@ -753,6 +757,8 @@ do jstep = 1, iters
   endif
   call gstats(3,1)
 enddo
+
+close (77)
 
 !===================================================================================================
 
