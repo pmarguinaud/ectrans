@@ -47,7 +47,7 @@ LOGICAL   :: LATLON     ! lat-lon output requested
 !INTEGER_M :: NF_UV_G      ! Global version of NF_UV (grid-point space)
 !INTEGER_M :: NF_SCALARS_G ! Global version of NF_SCALARS (grid-point space)
 
-REAL(KIND=JPRB), ALLOCATABLE :: FOUBUF_IN(:)  ! Fourier buffer
+REAL(KIND=JPRB), POINTER :: FOUBUF_IN(:) => NULL () ! Fourier buffer
 REAL(KIND=JPRB), POINTER :: FOUBUF(:) => NULL ()    ! Fourier buffer
 
 INTEGER(KIND=JPIM) :: NPROMA  ! Blocking factor for gridpoint input/output
