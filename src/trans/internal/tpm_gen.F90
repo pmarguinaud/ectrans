@@ -29,7 +29,6 @@ INTEGER(KIND=JPIM) :: NDEF_RESOL = 0  ! Number of defined resolutions
 INTEGER(KIND=JPIM) :: NPROMATR        ! Packet size for transform (in no of fields)
                              ! NPROMATR=0 means do all fields together (dflt)
 
-LOGICAL   :: LALLOPERM       ! Allocate some shared data structures permanently
 LOGICAL   :: LMPOFF          ! true: switch off message passing
 LOGICAL   :: LSYNC_TRANS     ! true: activate barriers in trmtol and trltom
 
