@@ -1,0 +1,12 @@
+check_errors.F90:4: error: directive KERNELS is not in the subset: !$ACC KERNELS
+check_errors.F90:6: error: directive END KERNELS is not in the subset: !$ACC END KERNELS
+check_errors.F90:7: error: clause GANG is not allowed on PARALLEL LOOP: !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT)
+check_errors.F90:7: error: clause VECTOR is not allowed on PARALLEL LOOP: !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT)
+check_errors.F90:7: error: only DEFAULT(NONE) is allowed: !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT)
+check_errors.F90:11: error: TILE and COLLAPSE on the same directive: !$ACC PARALLEL LOOP TILE(32) COLLAPSE(1)
+check_errors.F90:15: error: LOOP without SEQ: !$ACC LOOP
+check_errors.F90:16: error: clause SELF is not allowed on UPDATE: !$ACC UPDATE SELF(A)
+check_errors.F90:16: error: UPDATE without HOST or DEVICE: !$ACC UPDATE SELF(A)
+check_errors.F90:17: error: directive ROUTINE is not in the subset: !$ACC ROUTINE SEQ
+check_errors.F90:19: error: cpp line inside a directive continuation: !$ACC PARALLEL LOOP
+check_errors.F90:20: error: continuation line without a directive: !$ACC ASYNC(1)
