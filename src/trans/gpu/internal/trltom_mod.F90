@@ -176,6 +176,8 @@ CONTAINS
           !$ACC KERNELS ASYNC(1)
           PFBUF(FROM_RECV:TO_RECV) = PFBUF_IN(FROM_SEND:TO_SEND)
           !$ACC END KERNELS
+
+
 #endif
           ILENS(IRANK) = 0
           ILENR(IRANK) = 0
