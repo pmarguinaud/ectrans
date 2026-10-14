@@ -132,6 +132,16 @@ endfunction(generate_backend_sources)
 
 set( BUILD_INTERFACE_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include/ectrans )
 
+# Files (base names, without the _gpu_<prec> suffix) to compile at -O0, see below
+set( _O0_DEFAULT "" )
+if( GPU_OFFLOAD STREQUAL "OMP" AND CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang" )
+  set( _O0_DEFAULT "trltog_mod;trgtol_mod" )
+endif()
+set( ECTRANS_GPU_O0_SOURCES "${_O0_DEFAULT}" CACHE STRING "GPU sources compiled at -O0 (compiler workaround)" )
+if( ECTRANS_GPU_O0_SOURCES )
+  ecbuild_info( "GPU sources compiled at -O0 (compiler workaround): ${ECTRANS_GPU_O0_SOURCES}" )
+endif()
+
 foreach( prec dp sp )
   if( HAVE_${prec} )
 
@@ -139,6 +149,14 @@ foreach( prec dp sp )
 
         generate_backend_includes(BACKEND gpu_${prec} TARGET ectrans_gpu_${prec}_includes DESTINATION ${BUILD_INTERFACE_INCLUDE_DIR} INCLUDE_DIRECTORY ${PROJECT_SOURCE_DIR}/src/trans/include )
         generate_backend_sources( BACKEND gpu_${prec} OUTPUT ectrans_gpu_${prec}_src  DESTINATION ${GENERATED_SOURCE_DIR})
+
+        # Compiler workaround: compile some files without optimisation. With amdflang (AFAR 24.3.0),
+        # OPTIONAL dummy arguments in OpenMP target data/update clauses are miscompiled at -O2
+        # (TARGET UPDATE with a null host address, or results silently lost); this hits TRLTOG/TRGTOL.
+        # ecbuild appends the source COMPILE_FLAGS after the build-type flags, so -O0 wins.
+        foreach( file_i ${ECTRANS_GPU_O0_SOURCES} )
+          set_source_files_properties( ${GENERATED_SOURCE_DIR}/${file_i}_gpu_${prec}.F90 PROPERTIES COMPILE_FLAGS "-O0" )
+        endforeach()
 
         ecbuild_add_library(
           TARGET               ectrans_gpu_${prec}
