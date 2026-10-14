@@ -128,6 +128,10 @@ USE YOMHOOK,                     ONLY: LHOOK, DR_HOOK, JPHOOK
 USE OPENACC,                     ONLY: ACC_DEVICE_KIND, ACC_GET_DEVICE_TYPE, ACC_GET_NUM_DEVICES, &
   &                                    ACC_SET_DEVICE_NUM
 #endif
+#ifdef OMPGPU
+USE OMP_LIB,                     ONLY: OMP_GET_NUM_DEVICES, OMP_SET_DEFAULT_DEVICE
+USE DEVICE_MOD,                  ONLY: DEVICE_SETDEVICE
+#endif
 
 !endif INTERFACE
 
@@ -171,6 +175,9 @@ REAL(KIND=JPHOOK) :: ZHOOK_HANDLE
 INTEGER(ACC_DEVICE_KIND) :: IDEVTYPE
 #endif
 INTEGER :: INUMDEVS, MYGPU
+#ifdef OMPGPU
+INTEGER :: IRET
+#endif
 
 REAL(KIND=JPRBT), POINTER :: LOCAL_ARR(:,:)
 !     ------------------------------------------------------------------
@@ -480,6 +487,17 @@ IF( .NOT.D%LGRIDONLY ) THEN
   INUMDEVS = ACC_GET_NUM_DEVICES(IDEVTYPE)
   MYGPU = MOD(MYPROC-1, INUMDEVS)
   CALL ACC_SET_DEVICE_NUM(MYGPU, IDEVTYPE)
+#endif
+#ifdef OMPGPU
+  ! One GPU per MPI task, as with OpenACC above: default device for OpenMP offload, and
+  ! current HIP device for the hipFFT/hipBLAS calls
+  INUMDEVS = OMP_GET_NUM_DEVICES()
+  IF (INUMDEVS > 0) THEN
+    MYGPU = MOD(MYPROC-1, INUMDEVS)
+    CALL OMP_SET_DEFAULT_DEVICE(MYGPU)
+    IRET = DEVICE_SETDEVICE(MYGPU)
+    IF (IRET /= 0) CALL ABORT_TRANS('SETUP_TRANS: hipSetDevice failed')
+  ENDIF
 #endif
 
   WRITE(NOUT,*) 'R%NTMAX=',R%NTMAX
