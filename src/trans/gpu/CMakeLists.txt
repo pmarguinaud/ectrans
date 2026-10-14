@@ -46,8 +46,19 @@ else()
 endif()
 
 # We can't reliably pass GPU buffers directly to MPL routines yet, so for now we should still use raw MPI calls
+# Raw MPI can also be requested without GPU-aware MPI (host buffers): -DECTRANS_GPU_RAW_MPI=ON
 if( HAVE_GPU_AWARE_MPI )
+  set( _RAW_MPI_DEFAULT ON )
+else()
+  set( _RAW_MPI_DEFAULT OFF )
+endif()
+set( ECTRANS_GPU_RAW_MPI ${_RAW_MPI_DEFAULT} CACHE BOOL "Use raw MPI calls instead of MPL in GPU transpositions" )
+if( HAVE_GPU_AWARE_MPI OR ECTRANS_GPU_RAW_MPI )
   set( USE_RAW_MPI 1 )
+  if( NOT TARGET MPI::MPI_Fortran )
+    # otherwise only searched for by the GPU_AWARE_MPI feature
+    find_package( MPI REQUIRED COMPONENTS Fortran )
+  endif()
 else()
   set( USE_RAW_MPI 0)
 endif()
