@@ -738,14 +738,14 @@ CONTAINS
       ENDDO
     ENDDO
     CALL GSTATS(1605,1)
-#ifdef OMPGPU
-    !$OMP END TARGET DATA ! ZCOMBUFS
-#endif
-#ifdef ACCGPU
-    !$ACC END DATA ! ZCOMBUFS
 
+    !$ACC END DATA ! ZCOMBUFS
     !$ACC WAIT(1)
-#endif
+
+
+
+
+
 
     CALL GSTATS(805,0)
 
@@ -759,20 +759,20 @@ CONTAINS
     IR=0
     !...Receive loop.........................................................
 #ifdef USE_GPU_AWARE_MPI
-#ifdef OMPGPU
-    !$OMP TARGET DATA USE_DEVICE_PTR(ZCOMBUFS,ZCOMBUFR)
-#endif
-#ifdef ACCGPU
+
     !$ACC HOST_DATA USE_DEVICE(ZCOMBUFS,ZCOMBUFR)
-#endif
+
+
+
+
 #else
-#ifdef OMPGPU
-    !$OMP TARGET UPDATE FROM(ZCOMBUFS) IF(ISEND_COUNTS > 0)
-#endif
-#ifdef ACCGPU
     !! this is safe-but-slow fallback for running without GPU-aware MPI
     !$ACC UPDATE HOST(ZCOMBUFS) IF(ISEND_COUNTS > 0)
-#endif
+
+
+
+
+
 #endif
 
     ! Skip the own contribution because this is ok to overflow
@@ -826,12 +826,12 @@ CONTAINS
     ENDIF
 
 #ifdef USE_GPU_AWARE_MPI
-#ifdef ACCGPU
+
+
+
+
     !$ACC END HOST_DATA ! ZCOMBUFS, ZCOMBUFR
-#endif
-#ifdef OMPGPU
-    !$OMP END TARGET DATA ! ZCOMBUFS, ZCOMBUFR
-#endif
+
 #else
 #ifdef OMPGPU
 #endif
