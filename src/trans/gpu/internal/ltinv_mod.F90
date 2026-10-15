@@ -384,21 +384,21 @@ CONTAINS
       CALL SPNSDE(KF_SCALARS,ZEPSNM,PSCALARS,PSCALARS_NSDER)
     ENDIF
 
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-    !$OMP END TARGET DATA
-    !$OMP END TARGET DATA
-    !$OMP END TARGET DATA
-    !$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
     !$ACC WAIT(1)
     !$ACC END DATA
     !$ACC END DATA
     !$ACC END DATA
     !$ACC END DATA
     !$ACC END DATA
-#endif
+
+
+
+
+
+
+
+
+
 
   !     ------------------------------------------------------------------
 
