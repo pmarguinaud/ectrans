@@ -172,19 +172,19 @@ CONTAINS
                        IOUT0_STRIDES0,IOUT0_SIZE,IIN0_STRIDES0,IIN0_SIZE)
 
 
-#ifdef OMPGPU
-    !$OMP TARGET DATA &
-    !$OMP&              MAP(PRESENT,ALLOC:D,D_MYMS,D_NUMP) &
-    !$OMP&              MAP(PRESENT,ALLOC:ZINP,ZOUTS,ZOUTA,ZINP0,ZOUTS0,ZOUTA0) &
-    !$OMP&              MAP(PRESENT,ALLOC:ZAA,ZAS,PIA) &
-    !$OMP&              MAP(PRESENT,ALLOC:R,R_NSMAX,D_OFFSETS_GEMM2)
-#endif
-#ifdef ACCGPU
+
     !$ACC DATA PRESENT(D,D_MYMS,D_NUMP) &
     !$ACC&     PRESENT(ZINP,ZOUTS,ZOUTA,ZINP0,ZOUTS0,ZOUTA0) &
     !$ACC&     PRESENT(ZAA,ZAS,PIA) &
     !$ACC&     PRESENT(R,R_NSMAX,D_OFFSETS_GEMM2)
-#endif
+
+
+
+
+
+
+
+
 
     ! READ 2:NSMAX+3
 
@@ -197,26 +197,26 @@ CONTAINS
     !    DO=1,7/2+1 ... 1..4
     !       PIA_2=2+1+(1..4-1)*2 ...3+(0..3)*2 .... 3,5,7,9
 
-#ifdef OMPGPU
-    ! Directive incomplete -> putting more variables in SHARED() triggers internal compiler error
-    ! ftn-7991: INTERNAL COMPILER ERROR:  "Too few arguments on the stack"
-    !$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO COLLAPSE(2) &
-    !$OMP& PRIVATE(KM,IA,J) &
-    !$OMP& SHARED(D,R,KF_LEG,ZINP,IIN_STRIDES0,IIN0_STRIDES0) MAP(TO:KF_LEG)
-#endif
-#ifdef ACCGPU
+
+
+
     !$ACC PARALLEL LOOP COLLAPSE(2) PRIVATE(KM,IA,J) &
     !$ACC& FIRSTPRIVATE(KF_LEG,IIN_STRIDES0,IIN0_STRIDES0) DEFAULT(NONE) &
     !$ACC& ASYNC(1) PRESENT(D_MYMS,D_NUMP,ZINP,ZINP0,PIA,R_NSMAX,D_OFFSETS_GEMM2)
-#endif
+
+
+
+
+
+
     DO KMLOC=1,D_NUMP
       DO JK=1,2*KF_LEG
         KM =  D_MYMS(KMLOC)
         IA  = 1+MOD(R_NSMAX-KM+2,2)
         IF(KM /= 0)THEN
-#ifdef ACCGPU
+
           !$ACC LOOP SEQ
-#endif
+
           DO J=1,(R_NSMAX-KM+2)/2
             ZINP(JK+(J-1)*IIN_STRIDES0+D_OFFSETS_GEMM2(KMLOC)*IIN_STRIDES0)=PIA(JK,IA+1+(J-1)*2,KMLOC)
           ENDDO
@@ -229,9 +229,9 @@ CONTAINS
 #endif
         ELSEIF (MOD((JK-1),2) == 0) THEN
           ! every other field is sufficient because Im(KM=0) == 0
-#ifdef ACCGPU
+
           !$ACC LOOP SEQ
-#endif
+
           DO J=1,(R_NSMAX+2)/2
             ZINP0((JK-1)/2+1+(J-1)*IIN0_STRIDES0) = PIA(JK,IA+1+(J-1)*2,KMLOC)
           ENDDO
@@ -248,9 +248,9 @@ CONTAINS
 
 
     IF (LSYNC_TRANS) THEN
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(440,0)
       CALL MPL_BARRIER(MPL_ALL_MS_COMM,CDSTRING='')
       CALL GSTATS(440,1)
