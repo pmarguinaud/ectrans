@@ -345,22 +345,22 @@ CONTAINS
     !!CALL ASSIGN_PTR(PREEL_REAL, GET_ALLOCATION(ALLOCATOR, HTRGTOL%HCOMBUFR_AND_REEL), size1, size2) 
     end block
 
-#ifdef OMPGPU
-    !$OMP TARGET DATA MAP(TO:IRECV_BUFR_TO_OUT) MAP(PRESENT,ALLOC:PREEL_REAL) IF (KF_FS > 0)
-    !$OMP TARGET DATA MAP(TO:PGP_INDICES)
-#endif
-#ifdef ACCGPU
+
     !$ACC DATA COPYIN(IRECV_BUFR_TO_OUT) PRESENT(PREEL_REAL) IF (KF_FS > 0) ASYNC(1)
     !$ACC DATA COPYIN(PGP_INDICES) ASYNC(1)
-#endif
+
+
+
+
+
 
     CALL GSTATS(1805,1)
 
     ! Put data on device for copyin
     IF (LSYNC_TRANS) THEN
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(430,0)
       CALL MPL_BARRIER(CDSTRING='')
       CALL GSTATS(430,1)
@@ -396,16 +396,16 @@ CONTAINS
          & STREAM=1)
 #endif
 
-#ifdef ACCGPU
+
     !$ACC WAIT(1)
-#endif
+
     IF (PRESENT(PGP)) THEN
-#ifdef OMPGPU
-        !$OMP TARGET UPDATE TO(PGP) IF (.NOT. LLPGP_ON_GPU)
-#endif
-#ifdef ACCGPU
+
         !$ACC UPDATE DEVICE(PGP) IF (.NOT. LLPGP_ON_GPU)
-#endif
+
+
+
+
     ENDIF
     IF (PRESENT(PGPUV)) THEN
 #ifdef OMPGPU
