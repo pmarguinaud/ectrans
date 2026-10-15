@@ -412,12 +412,12 @@ CONTAINS
         & 0.0_JPRD, &
         & C_LOC(ZOUTS0), IOUT0_STRIDES0, 0, &
         & 1, HIP_STREAM, C_LOC(ALLOCATOR%PTR))
-#ifdef ACCGPU
+
+
+
+
       !$ACC END HOST_DATA
-#endif
-#ifdef OMPGPU
-      !$OMP END TARGET DATA
-#endif
+
     ENDIF
 
     DO KMLOC=1,D_NUMP
@@ -432,12 +432,12 @@ CONTAINS
       NS(IMLOC0(1)) = 0
       KS(IMLOC0(1)) = 0
     ENDIF
-#ifdef OMPGPU
-    !$OMP TARGET DATA USE_DEVICE_ADDR(ZAS,ZINP,ZOUTS)
-#endif
-#ifdef ACCGPU
+
     !$ACC HOST_DATA USE_DEVICE(ZAS,ZINP,ZOUTS)
-#endif
+
+
+
+
     CALL HIP_GEMM( &
       & NCUR_RESOL, 12, & ! unique identifier
       & 'N', 'T', &
@@ -448,31 +448,31 @@ CONTAINS
       & 0.0_JPRBT, &
       & C_LOC(ZOUTS), IOUT_STRIDES0, COFFSETS, &
       & D_NUMP, HIP_STREAM, C_LOC(ALLOCATOR%PTR))
-#ifdef ACCGPU
+
+
+
+
     !$ACC END HOST_DATA
-#endif
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-#endif
+
 
     IF (LSYNC_TRANS) THEN
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(444,0)
       CALL MPL_BARRIER(MPL_ALL_MS_COMM,CDSTRING='')
       CALL GSTATS(444,1)
     ENDIF
     CALL GSTATS(424,1)
 
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
     !$ACC WAIT(1)
-
     !$ACC END DATA
-#endif
+
+
+
+
+
+
 
     IF (LHOOK) CALL DR_HOOK('LE_DGEMM',1,ZHOOK_HANDLE)
     !     ------------------------------------------------------------------
