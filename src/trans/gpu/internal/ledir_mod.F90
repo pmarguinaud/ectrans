@@ -186,9 +186,9 @@ CONTAINS
 
 
     IF (LSYNC_TRANS) THEN
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(430,0)
       CALL MPL_BARRIER(MPL_ALL_MS_COMM,CDSTRING='')
       CALL GSTATS(430,1)
@@ -199,12 +199,12 @@ CONTAINS
     IMLOC0 = FINDLOC(D_MYMS,0)
     IF(IMLOC0(1) > 0) THEN
       ! compute m=0 in double precision:
-#ifdef OMPGPU
-      !$OMP TARGET DATA USE_DEVICE_ADDR(ZAA0,ZINPA0,ZOUT0)
-#endif
-#ifdef ACCGPU
+
       !$ACC HOST_DATA USE_DEVICE(ZAA0,ZINPA0,ZOUT0)
-#endif
+
+
+
+
       CALL HIP_DGEMM_BATCHED( &
         & 'N', 'N', &
         & KF_FS, (R_NSMAX+2)/2, G_NDGLU(0), &
@@ -214,12 +214,12 @@ CONTAINS
         & 0.0_JPRD, &
         & C_LOC(ZOUT0), IOUT0_STRIDES0, 0, &
         & 1, HIP_STREAM, C_LOC(ALLOCATOR%PTR))
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
+
     !$ACC END HOST_DATA
-#endif
+
+
+
+
     ENDIF
     ! Get C in transpose format to get better memory access patterns later
     !C=A*B =>
@@ -236,12 +236,12 @@ CONTAINS
       NS(IMLOC0(1)) = 0
       KS(IMLOC0(1)) = 0
     ENDIF
-#ifdef OMPGPU
-    !$OMP TARGET DATA USE_DEVICE_ADDR(ZAA,ZINPA,ZOUT)
-#endif
-#ifdef ACCGPU
+
     !$ACC HOST_DATA USE_DEVICE(ZAA,ZINPA,ZOUT)
-#endif
+
+
+
+
     CALL HIP_GEMM( &
       & NCUR_RESOL, 21, & ! unique identifier
       & 'N', 'N', &
@@ -252,12 +252,12 @@ CONTAINS
       & 0.0_JPRBT, &
       & C_LOC(ZOUT), IOUT_STRIDES0, COFFSETS, &
       & D_NUMP, HIP_STREAM, C_LOC(ALLOCATOR%PTR))
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
+
     !$ACC END HOST_DATA
-#endif
+
+
+
+
     IF (LSYNC_TRANS) THEN
 #ifdef ACCGPU
       !$ACC WAIT(1)
