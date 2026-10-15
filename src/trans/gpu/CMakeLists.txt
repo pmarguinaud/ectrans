@@ -134,7 +134,21 @@ function(generate_backend_sources)
     # This is a known problem with crayftn
     set(outfile "${destination}/${outfile_name_we}_${backend}${outfile_ext}")
     ecbuild_debug("Generate ${outfile}")
-    generate_file(BACKEND ${backend} INPUT ${CMAKE_CURRENT_SOURCE_DIR}/${file_i} OUTPUT ${outfile})
+    if( GPU_OFFLOAD STREQUAL "OMP" )
+      # OpenMP offload: the OpenACC directives (outside the hand-written ACCGPU/OMPGPU pairs)
+      # are translated to OpenMP Target by tools/acc2omp/acc2omp.pl, on the same lines
+      set(accfile "${outfile}.acc")
+      generate_file(BACKEND ${backend} INPUT ${CMAKE_CURRENT_SOURCE_DIR}/${file_i} OUTPUT ${accfile})
+      add_custom_command(
+        OUTPUT  ${outfile}
+        COMMAND ${PERL_EXECUTABLE} ${ACC2OMP} -o ${outfile} ${accfile}
+        DEPENDS ${accfile} ${ACC2OMP}
+        COMMENT "Translating OpenACC to OpenMP: ${outfile}"
+        VERBATIM
+      )
+    else()
+      generate_file(BACKEND ${backend} INPUT ${CMAKE_CURRENT_SOURCE_DIR}/${file_i} OUTPUT ${outfile})
+    endif()
     list(APPEND outfiles ${outfile})
   endforeach(file_i)
   set(${_PAR_OUTPUT} ${outfiles} PARENT_SCOPE)
@@ -142,6 +156,15 @@ endfunction(generate_backend_sources)
 
 
 set( BUILD_INTERFACE_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include/ectrans )
+
+# OpenMP offload: the generated sources go through the OpenACC -> OpenMP Target converter
+# (generate_backend_sources). The sources that are not generated (algor/, tpm_hicfft) only
+# have hand-written ACCGPU/OMPGPU pairs, which the converter would copy unchanged.
+if( GPU_OFFLOAD STREQUAL "OMP" )
+  find_package( Perl REQUIRED )
+  set( ACC2OMP ${PROJECT_SOURCE_DIR}/tools/acc2omp/acc2omp.pl )
+  ecbuild_info( "OpenACC -> OpenMP Target converter: ${ACC2OMP}" )
+endif()
 
 # Files (base names, without the _gpu_<prec> suffix) to compile at -O0, see below
 set( _O0_DEFAULT "" )
