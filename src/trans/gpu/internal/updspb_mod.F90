@@ -105,14 +105,14 @@ MODULE UPDSPB_MOD
 
 ! Directive incomplete -> putting more variables in SHARED() triggers internal compiler error
 ! ftn-7991: INTERNAL COMPILER ERROR:  "Too few arguments on the stack"
-#ifdef OMPGPU
-  !$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO COLLAPSE(3) DEFAULT(NONE) PRIVATE(KM,IASM0,INM) &
-  !$OMP& SHARED(D,R,KFIELD,POA,PSPEC) MAP(TO:KFIELD)
-#endif
-#ifdef ACCGPU
+
   !$ACC PARALLEL LOOP COLLAPSE(3) PRIVATE(KM,IASM0,INM) DEFAULT(NONE) FIRSTPRIVATE(KFIELD) &
   !$ACC& ASYNC(1) PRESENT(PSPEC,POA,R_NTMAX,D_NUMP,D_MYMS,D_NASM0)
-#endif
+
+
+
+
+
   DO KMLOC=1,D_NUMP
     DO JN=3,R_NTMAX+3
       DO JFLD=1,KFIELD
@@ -134,12 +134,12 @@ MODULE UPDSPB_MOD
     ENDDO
   ENDDO
 
-#ifdef ACCGPU
+
+
+
+
   !$ACC END DATA
-#endif
-#ifdef OMPGPU
-  !$OMP END TARGET DATA
-#endif
+
  
   END ASSOCIATE
   !     ------------------------------------------------------------------
