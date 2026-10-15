@@ -223,12 +223,12 @@ CONTAINS
 
 #else
     !! this is safe-but-slow fallback for running without GPU-aware MPI
-#ifdef OMPGPU
-    !$OMP TARGET UPDATE TO(PFBUF)
-#endif
-#ifdef ACCGPU
+
     !$ACC UPDATE DEVICE(PFBUF)
-#endif
+
+
+
+
 #endif
       IF (LSYNC_TRANS) THEN
         CALL GSTATS(431,0)
@@ -237,33 +237,33 @@ CONTAINS
       ENDIF
       CALL GSTATS(411,1)
 
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(806,1)
     ELSE
       ILEN = 2_JPIB*D%NLTSGTB(MYSETW)*KF_FS
       ISTA = 2_JPIB*D%NSTAGT1B(MYSETW)*KF_FS+1
       IEND = ISTA+ILEN-1
       CALL GSTATS(1607,0)
-#ifdef OMPGPU
-      !$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO DEFAULT(NONE) SHARED(IEND,ISTA,PFBUF_IN,PFBUF)
-#endif
-#ifdef ACCGPU
+
       !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(PFBUF,PFBUF_IN) FIRSTPRIVATE(ISTA,IEND)
-#endif
+
+
+
+
       DO JPOS=ISTA,IEND
         PFBUF(JPOS) = PFBUF_IN(JPOS)
       ENDDO
       CALL GSTATS(1607,1)
     ENDIF
 
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
+
     !$ACC END DATA
-#endif
+
+
+
+
 
     IF (LHOOK) CALL DR_HOOK('TRLTOM',1,ZHOOK_HANDLE)
     !     ------------------------------------------------------------------
