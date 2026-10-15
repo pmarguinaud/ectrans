@@ -87,33 +87,33 @@ REAL(KIND=JPRBT) :: ZKM
 
 ASSOCIATE(D_NUMP=>D%NUMP, D_MYMS=>D%MYMS, R_NTMAX=>R%NTMAX, F_RLAPIN=>F%RLAPIN)
 
-#ifdef ACCGPU
+
+
+
+
+
+
+
 !$ACC DATA                                                       &
 !$ACC&      PRESENT(R,R_NTMAX,D,D_MYMS,D_NUMP,F,F_RLAPIN) &
 !$ACC&      PRESENT(PEPSNM, PVOR, PDIV)                          &
 !$ACC&      PRESENT(PU, PV)
-#endif
-#ifdef OMPGPU
-!$OMP TARGET DATA                                                   &
-!$OMP&      MAP(PRESENT,ALLOC:R,R_NTMAX,D,D_MYMS,D_NUMP,F,F_RLAPIN) &
-!$OMP&      MAP(PRESENT,ALLOC:PEPSNM, PVOR, PDIV)                   &
-!$OMP&      MAP(PRESENT,ALLOC:PU, PV)
-#endif
+
 
 !     ------------------------------------------------------------------
 
 !*       1.    COMPUTE U V FROM VORTICITY AND DIVERGENCE.
 !              ------------------------------------------
 
-#ifdef OMPGPU
-!$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO COLLAPSE(3) DEFAULT(NONE) &
-!$OMP& PRIVATE(IR,II,KM,ZKM,JI) SHARED(D,R,F,PEPSNM,PVOR,PDIV,PU,PV,KFIELD) &
-!$OMP& MAP(TO:KFIELD)
-#endif
-#ifdef ACCGPU
+
 !$ACC PARALLEL LOOP COLLAPSE(3) DEFAULT(NONE) PRIVATE(IR,II,KM,ZKM,JI,KMLOC) FIRSTPRIVATE(KFIELD) &
 !$ACC& ASYNC(1) PRESENT(R_NTMAX,D_MYMS,D_NUMP,F_RLAPIN,PEPSNM,PVOR,PDIV,PU,PV)
-#endif
+
+
+
+
+
+
 DO KMLOC=1,D_NUMP
   DO JN=0,R_NTMAX+1
     DO J=1,KFIELD

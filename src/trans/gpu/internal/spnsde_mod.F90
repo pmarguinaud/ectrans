@@ -82,16 +82,16 @@ INTEGER(KIND=JPIM) :: J, JN, JI, IR, II
 
 ASSOCIATE(D_NUMP=>D%NUMP, R_NTMAX=>R%NTMAX, D_MYMS=>D%MYMS)
 
-#ifdef OMPGPU
-!$OMP TARGET DATA &
-!$OMP&              MAP(PRESENT,ALLOC:R,R_NTMAX,D,D_MYMS) &
-!$OMP&              MAP(PRESENT,ALLOC:D_NUMP,PEPSNM,PF,PNSD)
-#endif
-#ifdef ACCGPU
+
 !$ACC DATA                                  &
 !$ACC&      PRESENT (R,R_NTMAX, D,D_MYMS)       &
 !$ACC&      PRESENT (D_NUMP,PEPSNM, PF, PNSD) ASYNC(1)
-#endif
+
+
+
+
+
+
 
 !     ------------------------------------------------------------------
 
@@ -101,14 +101,14 @@ ASSOCIATE(D_NUMP=>D%NUMP, R_NTMAX=>R%NTMAX, D_MYMS=>D%MYMS)
 
 !*       1.1      COMPUTE
 
-#ifdef OMPGPU
-!$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO COLLAPSE(3) DEFAULT(NONE) &
-!$OMP& PRIVATE(KM,IR,II,JI) MAP(TO:KF_SCALARS) SHARED(D,R,PEPSNM,PF,PNSD,KF_SCALARS)
-#endif
-#ifdef ACCGPU
+
 !$ACC PARALLEL LOOP DEFAULT(NONE) COLLAPSE(3) PRIVATE(KM,IR,II,JI) FIRSTPRIVATE(KF_SCALARS) &
 !$ACC& ASYNC(1) PRESENT(R_NTMAX,D_MYMS,D_NUMP,PEPSNM,PF,PNSD)
-#endif
+
+
+
+
+
 DO KMLOC=1,D_NUMP
   DO JN=0,R_NTMAX+1
     DO J=1,KF_SCALARS
@@ -135,12 +135,12 @@ DO KMLOC=1,D_NUMP
   ENDDO
 END DO
 
-#ifdef OMPGPU
-!$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
+
 !$ACC END DATA
-#endif
+
+
+
+
 
 !     ------------------------------------------------------------------
 END ASSOCIATE
