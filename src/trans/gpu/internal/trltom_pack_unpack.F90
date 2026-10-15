@@ -304,9 +304,9 @@ CONTAINS
     DO KMLOC=1,D_NUMP
       DO JF=1,KF_FS*2
           KM = D_MYMS(KMLOC)
-#ifdef ACCGPU
+
           !$ACC LOOP SEQ
-#endif
+
           DO JGL=G_NDGLU(KM),ALIGN(G_NDGLU(KM),A)-1
             IF (KM /= 0) THEN
               ZINPA(JF+JGL*IIN_STRIDES0+IIN_STRIDES0*D_OFFSETS_GEMM1(KMLOC))=0.0_JPRB
@@ -317,12 +317,12 @@ CONTAINS
     END DO
 #endif
 
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
+
     !$ACC END DATA
-#endif
+
+
+
+
 
    END ASSOCIATE
   END SUBROUTINE TRLTOM_UNPACK
