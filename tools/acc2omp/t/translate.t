@@ -31,4 +31,8 @@ isnt($?, 0, 'translate errors: exit status not 0');
 is($out, &slurp('check_errors.ref'), 'translate errors: same messages as --check');
 ok(! -e $tmp, 'translate errors: no output file');
 
+$out = `$^X $tool --compare-pairs --summary compare_pairs.F90 2>&1`;
+is($?, 0, 'compare-pairs: exit status 0');
+is($out, &slurp('compare_pairs.ref'), 'compare-pairs: report');
+
 done_testing();

@@ -17,6 +17,7 @@ acc2omp.pl - OpenACC to OpenMP Target converter for the ectrans GPU sources
 
   acc2omp.pl [-o out.F90] in.F90
   acc2omp.pl --check [--pairs] [--summary] file.F90 ...
+  acc2omp.pl --compare-pairs [--summary] file.F90 ...
 
 =head1 DESCRIPTION
 
@@ -63,6 +64,19 @@ construct has an IF clause containing PRESENT(name) (an OPTIONAL argument
 that may be absent): OpenACC ignores a data clause on an absent optional
 argument, but MAP(PRESENT) would fail at run time. The enclosing DATA
 constructs include those of the hand-written pairs (their ACCGPU half).
+
+Pair comparison (--compare-pairs): for each hand-written pair (adjacent
+"#ifdef ACCGPU" and "#ifdef OMPGPU" blocks), translate the directives of the
+ACCGPU half and compare them with those of the OMPGPU half, directive by
+directive (aligned on the directive names). Each difference is printed as
+
+  file:line: CATEGORY: names (OMP line n)
+
+with categories such as FIRSTPRIVATE~MAP(TO) (OpenACC FIRSTPRIVATE, OpenMP
+MAP(TO:) or SHARED: the same for scalars), PRESENT-only-ACC (the OpenMP
+relies on an enclosing TARGET DATA), PRIVATE-only-ACC, USE_DEVICE_PTR,
+ONLY-ACC / ONLY-OMP (directive without counterpart), and CODE-PAIR (the
+pair contains code: not compared). --summary adds counts by category.
 
 Check mode: verify that every OpenACC directive of the given free-form
 Fortran files belongs to the subset that can be translated to OpenMP
@@ -213,10 +227,11 @@ sub readDirectives
 # Parse a directive text: return (name, [[clause, args or undef], ...]) or die with a message
 sub parseDirective
 {
-  my $text = shift;
+  my ($text, $names) = @_;
+  $names //= \@DIRECTIVES;
 
   my $name;
-  for my $d (@DIRECTIVES)
+  for my $d (@$names)
   {
     (my $re = $d) =~ s/ /\\s+/g;
     if ($text =~ s/^($re)\b\s*//i)
@@ -460,10 +475,288 @@ sub translateFile
   return (\@lines, \@msg, $eol);
 }
 
-my ($check, $pairs, $summary, $output);
-my $usage = "usage: acc2omp.pl [-o out.F90] in.F90\n       acc2omp.pl --check [--pairs] [--summary] file.F90 ...\n";
-GetOptions('check' => \$check, 'pairs' => \$pairs, 'summary' => \$summary, 'o=s' => \$output)
+# ---------------------------------------------------------------------------
+# Pair comparison (--compare-pairs): translate the ACCGPU half of each pair and
+# compare it with the hand-written OMPGPU half.
+
+my @OMP_DIRECTIVES = (
+  'END TARGET TEAMS DISTRIBUTE PARALLEL DO', 'TARGET TEAMS DISTRIBUTE PARALLEL DO',
+  'END TARGET DATA', 'TARGET ENTER DATA', 'TARGET EXIT DATA', 'TARGET UPDATE', 'TARGET DATA',
+);
+
+# Pairs of a file: adjacent "#ifdef ACCGPU" / "#ifdef OMPGPU" blocks (either order, empty
+# lines allowed between them). Return [{acc => [first, last], omp => [first, last]}] (0-based
+# line indices of the #ifdef and #endif lines)
+sub findPairs
+{
+  my $lines = shift;
+  my @pairs;
+  my $block = sub
+  {
+    my $i = shift;
+    return unless ($lines->[$i] =~ m/^\s*#\s*ifdef\s+(ACCGPU|OMPGPU)\s*$/o);
+    my ($kind, $depth, $j) = ($1, 1, $i + 1);
+    for (; $j < @$lines; $j++)
+    {
+      $depth++ if ($lines->[$j] =~ m/^\s*#\s*if/o);
+      $depth-- if ($lines->[$j] =~ m/^\s*#\s*endif/o);
+      last unless $depth;
+    }
+    return ($kind, $i, $j);
+  };
+  my $i = 0;
+  while ($i < @$lines)
+  {
+    my ($k1, $s1, $e1) = $block->($i);
+    unless ($k1)
+    {
+      $i++;
+      next;
+    }
+    my $j = $e1 + 1;
+    $j++ while ($j < @$lines && $lines->[$j] =~ m/^\s*$/o);
+    my ($k2, $s2, $e2) = ($j < @$lines) ? $block->($j) : ();
+    if ($k2 && $k2 ne $k1)
+    {
+      push @pairs, ($k1 eq 'ACCGPU') ? {acc => [$s1, $e1], omp => [$s2, $e2]}
+                                     : {acc => [$s2, $e2], omp => [$s1, $e1]};
+      $i = $e2 + 1;
+    }
+    else
+    {
+      $i = $e1 + 1;
+    }
+  }
+  return @pairs;
+}
+
+# Directives of a block (lines first .. last) with the given sentinel; also tell whether
+# the block contains code (lines that are neither directives, comments, cpp nor empty)
+sub blockDirectives
+{
+  my ($lines, $first, $last, $sentinel) = @_;
+  my (@dir, $cur, $code);
+  for my $i ($first .. $last)
+  {
+    my $s = $lines->[$i];
+    if ($s =~ m/^\s*!\$$sentinel(&?)(.*)$/i)
+    {
+      my ($amp, $body) = ($1, $2);
+      $amp = '&' if ($body =~ s/^\s*&//o);
+      $body =~ s/!.*$//o;
+      if ($cur) { $cur->{text} .= ' ' . $body; } else { $cur = {line => $i + 1, text => $body}; }
+      next if ($cur->{text} =~ s/\s*&\s*$//o);
+      push @dir, $cur; $cur = undef;
+      next;
+    }
+    push(@dir, $cur), $cur = undef if $cur;
+    $code = 1 unless ($s =~ m/^\s*(!.*)?$/o || $s =~ m/^\s*#/o);
+  }
+  push @dir, $cur if $cur;
+  for (@dir) { $_->{text} =~ s/\s+/ /go; $_->{text} =~ s/^ | $//go; }
+  return (\@dir, $code);
+}
+
+# Normalised content of an OpenMP directive: {name, MAP:type => {x}, PRIVATE => {x}, ...}
+sub ompContent
+{
+  my ($name, $clauses) = @_;
+  my %c = (name => $name);
+  for (@$clauses)
+  {
+    my ($k, $args) = @$_;
+    $args //= '';
+    if ($k eq 'MAP' && $args =~ m/^\s*([^:]*):(.*)$/so)
+    {
+      (my $t = uc($1)) =~ s/\s+//go;
+      $c{"MAP($t)"}{uc($_)} = 1 for &splitArgs($2);
+    }
+    elsif ($k =~ m/^(COLLAPSE|IF)$/o)
+    {
+      ($c{$k} = uc($args)) =~ s/\s+//go;
+    }
+    elsif ($k eq 'DEFAULT')
+    {
+      next;
+    }
+    else   # PRIVATE FIRSTPRIVATE SHARED FROM TO USE_DEVICE_ADDR USE_DEVICE_PTR ...
+    {
+      $c{$k}{uc($_)} = 1 for &splitArgs($args);
+      $c{$k} //= {};
+    }
+  }
+  return \%c;
+}
+
+# Differences between the translated ACC directive $a and the hand-written OMP one $o;
+# return a list of [category, text]
+sub compareContent
+{
+  my ($a, $o) = @_;
+  return (['DIRECTIVE', "$a->{name} / $o->{name}"]) if ($a->{name} ne $o->{name});
+  my @d;
+  my $set = sub { my $x = shift; return $x ? sort keys %$x : (); };
+  my $minus = sub { my ($x, $y) = @_; return grep { ! ($y && $y->{$_}) } $set->($x); };
+  my %scalarO = map { ($_ => 1) } ($set->($o->{'MAP(TO)'}), $set->($o->{FIRSTPRIVATE}), $set->($o->{SHARED}));
+  for my $k (qw(COLLAPSE IF))
+  {
+    my ($x, $y) = ($a->{$k} // '-', $o->{$k} // '-');
+    push @d, [$k, "$x / $y"] if ($x ne $y);
+  }
+  my %keys = map { ($_ => 1) } grep { ref($a->{$_}) || ref($o->{$_}) } (keys %$a, keys %$o);
+  for my $k (sort keys %keys)
+  {
+    next if ($k eq 'SHARED');
+    my @onlyA = $minus->($a->{$k}, $o->{$k});
+    my @onlyO = $minus->($o->{$k}, $a->{$k});
+    if ($k eq 'FIRSTPRIVATE')
+    {
+      # ACC FIRSTPRIVATE(x) vs OMP MAP(TO:x) / SHARED(x) / nothing: the same for scalars
+      my @eq = grep { $scalarO{$_} } @onlyA;
+      my @ne = grep { ! $scalarO{$_} } @onlyA;
+      push @d, ['FIRSTPRIVATE~MAP(TO)', join(',', @eq)] if @eq;
+      push @d, ['FIRSTPRIVATE-implicit', join(',', @ne)] if @ne;
+      push @d, ['FIRSTPRIVATE-only-OMP', join(',', @onlyO)] if @onlyO;
+      next;
+    }
+    if ($k eq 'MAP(TO)' && $o->{name} =~ m/TEAMS/o)
+    {
+      @onlyO = grep { ! ($a->{FIRSTPRIVATE} && $a->{FIRSTPRIVATE}{$_}) } @onlyO;
+    }
+    if ($k eq 'MAP(PRESENT,ALLOC)')
+    {
+      push @d, ['PRESENT-only-ACC', join(',', @onlyA)] if @onlyA;
+      push @d, ['PRESENT-only-OMP', join(',', @onlyO)] if @onlyO;
+      next;
+    }
+    if ($k eq 'USE_DEVICE_PTR' || ($k eq 'USE_DEVICE_ADDR' && $o->{USE_DEVICE_PTR}))
+    {
+      push @d, ['USE_DEVICE_PTR', join(',', @onlyO ? @onlyO : @onlyA)] if ($k eq 'USE_DEVICE_PTR');
+      next;
+    }
+    push @d, ["$k-only-ACC", join(',', @onlyA)] if @onlyA;
+    push @d, ["$k-only-OMP", join(',', @onlyO)] if @onlyO;
+  }
+  return @d;
+}
+
+# Compare the pairs of a file; print one line per difference; return counts by category
+sub comparePairs
+{
+  my $file = shift;
+  open(my $fh, '<', $file) or die "$file: $!\n";
+  my @lines = <$fh>;
+  close($fh);
+  chomp(@lines);
+
+  # conditionally present names (CC3 rule) at each OpenACC directive, in file order
+  my ($all) = &readDirectives($file);
+  my (%cond, @stack);
+  for my $d (@$all)
+  {
+    my ($name, $clauses);
+    eval { ($name, $clauses) = &parseDirective($d->{text}) };
+    next if $@;
+    push(@stack, &conditionalNames($clauses)) if ($name eq 'DATA');
+    pop(@stack) if ($name eq 'END DATA');
+    $cond{$d->{line}} = { map { %$_ } @stack };
+  }
+
+  my %count;
+  my $out = sub { my ($ln, $cat, $txt) = @_; print "$file:$ln: $cat: $txt\n"; $count{$cat}++; };
+  for my $p (&findPairs(\@lines))
+  {
+    my ($A, $codeA) = &blockDirectives(\@lines, @{ $p->{acc} }, 'acc');
+    my ($O, $codeO) = &blockDirectives(\@lines, @{ $p->{omp} }, 'omp');
+    $count{pairs}++;
+    if ($codeA || $codeO)
+    {
+      $out->($p->{acc}[0] + 1, 'CODE-PAIR', 'contains code, not compared');
+      next;
+    }
+    my (@a, @o);
+    for my $d (@$A)
+    {
+      my ($name, $clauses);
+      eval { ($name, $clauses) = &parseDirective($d->{text}) };
+      if ($@ || &checkDirective($name, $clauses))
+      {
+        $out->($d->{line}, 'NOT-IN-SUBSET', "!\$ACC $d->{text}");
+        next;
+      }
+      my @tok = &translate($name, $clauses, $cond{$d->{line}});
+      next unless @tok;
+      my ($n, $c) = &parseDirective(join(' ', @tok), \@OMP_DIRECTIVES);
+      push @a, [$d->{line}, &ompContent($n, $c)];
+    }
+    for my $d (@$O)
+    {
+      my ($name, $clauses);
+      eval { ($name, $clauses) = &parseDirective($d->{text}, \@OMP_DIRECTIVES) };
+      if ($@)
+      {
+        $out->($d->{line}, 'OMP-NOT-PARSED', "!\$OMP $d->{text}");
+        next;
+      }
+      next if ($name eq 'END TARGET TEAMS DISTRIBUTE PARALLEL DO');   # optional in Fortran
+      push @o, [$d->{line}, &ompContent($name, $clauses)];
+    }
+    $count{directives} += @a;
+    # align on directive names (longest common subsequence)
+    my @L = map { [ (0) x (@o + 1) ] } 0 .. @a;
+    for my $i (reverse 0 .. $#a)
+    {
+      for my $j (reverse 0 .. $#o)
+      {
+        $L[$i][$j] = ($a[$i][1]{name} eq $o[$j][1]{name}) ? $L[$i+1][$j+1] + 1
+                   : ($L[$i+1][$j] >= $L[$i][$j+1] ? $L[$i+1][$j] : $L[$i][$j+1]);
+      }
+    }
+    my ($i, $j) = (0, 0);
+    while ($i < @a || $j < @o)
+    {
+      if ($i < @a && $j < @o && $a[$i][1]{name} eq $o[$j][1]{name})
+      {
+        my @d = &compareContent($a[$i][1], $o[$j][1]);
+        $count{identical}++ unless @d;
+        $out->($a[$i][0], $_->[0], "$_->[1] (OMP line $o[$j][0])") for @d;
+        $i++; $j++;
+      }
+      elsif ($j >= @o || ($i < @a && $L[$i+1][$j] >= $L[$i][$j+1]))
+      {
+        $out->($a[$i][0], 'ONLY-ACC', $a[$i][1]{name}); $i++;
+      }
+      else
+      {
+        $out->($o[$j][0], 'ONLY-OMP', $o[$j][1]{name}); $j++;
+      }
+    }
+  }
+  return \%count;
+}
+
+my ($check, $pairs, $summary, $output, $compare);
+my $usage = "usage: acc2omp.pl [-o out.F90] in.F90\n       acc2omp.pl --check [--pairs] [--summary] file.F90 ...\n"
+          . "       acc2omp.pl --compare-pairs [--summary] file.F90 ...\n";
+GetOptions('check' => \$check, 'pairs' => \$pairs, 'summary' => \$summary, 'o=s' => \$output,
+           'compare-pairs' => \$compare)
   or die $usage;
+
+if ($compare)
+{
+  die $usage unless @ARGV;
+  my %tot;
+  for my $file (@ARGV)
+  {
+    my $c = &comparePairs($file);
+    $tot{$_} += $c->{$_} for keys %$c;
+  }
+  if ($summary)
+  {
+    print "# $_: $tot{$_}\n" for sort keys %tot;
+  }
+  exit(0);
+}
 
 if (! $check)
 {

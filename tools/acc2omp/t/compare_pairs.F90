@@ -1,0 +1,47 @@
+SUBROUTINE COMPARE_PAIRS(N, A, B)
+! acc2omp.pl --compare-pairs: one pair per category
+INTEGER :: N, J
+REAL :: A(N), B(N)
+! identical
+#ifdef ACCGPU
+!$ACC DATA PRESENT(A,B) ASYNC(1)
+#endif
+#ifdef OMPGPU
+!$OMP TARGET DATA MAP(PRESENT,ALLOC:A,B)
+#endif
+! FIRSTPRIVATE vs MAP(TO), PRESENT only on the OpenACC loop, PRIVATE only in OpenACC
+#ifdef OMPGPU
+!$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO SHARED(A,N) MAP(TO:N)
+#endif
+#ifdef ACCGPU
+!$ACC PARALLEL LOOP PRIVATE(J) FIRSTPRIVATE(N) DEFAULT(NONE) PRESENT(A) ASYNC(1)
+#endif
+DO J=1,N
+  A(J) = 0.
+ENDDO
+! USE_DEVICE_PTR in the hand-written OpenMP
+#ifdef ACCGPU
+!$ACC HOST_DATA USE_DEVICE(A)
+#endif
+#ifdef OMPGPU
+!$OMP TARGET DATA USE_DEVICE_PTR(A)
+#endif
+CALL SOMETHING(A)
+! code pair
+#ifdef ACCGPU
+!$ACC END HOST_DATA
+!$ACC WAIT(1)
+CALL ACC_SPECIFIC()
+#endif
+#ifdef OMPGPU
+!$OMP END TARGET DATA
+#endif
+! directive only in OpenMP
+#ifdef ACCGPU
+!$ACC END DATA
+#endif
+#ifdef OMPGPU
+!$OMP END TARGET DATA
+!$OMP TARGET UPDATE FROM(B)
+#endif
+END SUBROUTINE

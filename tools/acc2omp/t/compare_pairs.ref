@@ -1,0 +1,15 @@
+compare_pairs.F90:17: FIRSTPRIVATE~MAP(TO): N (OMP line 14)
+compare_pairs.F90:17: PRESENT-only-ACC: A (OMP line 14)
+compare_pairs.F90:17: PRIVATE-only-ACC: J (OMP line 14)
+compare_pairs.F90:24: USE_DEVICE_PTR: A (OMP line 27)
+compare_pairs.F90:31: CODE-PAIR: contains code, not compared
+compare_pairs.F90:45: ONLY-OMP: TARGET UPDATE
+# CODE-PAIR: 1
+# FIRSTPRIVATE~MAP(TO): 1
+# ONLY-OMP: 1
+# PRESENT-only-ACC: 1
+# PRIVATE-only-ACC: 1
+# USE_DEVICE_PTR: 1
+# directives: 4
+# identical: 2
+# pairs: 5
