@@ -184,20 +184,20 @@ CONTAINS
       ENDIF
       CALL GSTATS(421,0)
 #ifdef USE_GPU_AWARE_MPI
-#ifdef OMPGPU
-      !$OMP TARGET DATA USE_DEVICE_ADDR(PFBUF_IN,PFBUF)
-#endif
-#ifdef ACCGPU
+
       !$ACC HOST_DATA USE_DEVICE(PFBUF_IN, PFBUF)
-#endif
+
+
+
+
 #else
       !! this is safe-but-slow fallback for running without GPU-aware MPI
-#ifdef OMPGPU
-      !$OMP TARGET UPDATE FROM(PFBUF_IN,PFBUF)
-#endif
-#ifdef ACCGPU
+
       !$ACC UPDATE HOST(PFBUF_IN,PFBUF)
-#endif
+
+
+
+
 #endif
 
 #ifdef USE_RAW_MPI
@@ -211,20 +211,20 @@ CONTAINS
 #endif
 
 #ifdef USE_GPU_AWARE_MPI
-#ifdef ACCGPU
+
+
+
+
       !$ACC END HOST_DATA
-#endif
-#ifdef OMPGPU
-      !$OMP END TARGET DATA
-#endif
+
 #else
       !! this is safe-but-slow fallback for running without GPU-aware MPI
-#ifdef ACCGPU
+
+
+
+
       !$ACC UPDATE DEVICE(PFBUF)
-#endif
-#ifdef OMPGPU
-      !$OMP TARGET UPDATE TO(PFBUF)
-#endif
+
 #endif
       IF (LSYNC_TRANS) THEN
         CALL GSTATS(441,0)
@@ -233,9 +233,9 @@ CONTAINS
       ENDIF
       CALL GSTATS(421,1)
 
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(807,1)
     ELSE
       ILEN = 2_JPIB*D%NLTSGTB(MYSETW)*KF_LEG
