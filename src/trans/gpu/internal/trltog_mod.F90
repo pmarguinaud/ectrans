@@ -1015,23 +1015,23 @@ CONTAINS
 #endif
 
     IF (LSYNC_TRANS) THEN
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(442,0)
       CALL MPL_BARRIER(CDSTRING='')
       CALL GSTATS(442,1)
     ENDIF
     CALL GSTATS(422,1)
 
-#ifdef ACCGPU
-    !$ACC END DATA ! IGP_OFFSETS
 
+
+
+
+
+
+    !$ACC END DATA ! IGP_OFFSETS
     !$ACC WAIT(1)
-#endif
-#ifdef OMPGPU
-    !$OMP END TARGET DATA !IGP_OFFSETS
-#endif
 
     CALL GSTATS(1606,1)
 
