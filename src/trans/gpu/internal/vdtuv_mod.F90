@@ -153,12 +153,12 @@ DO KMLOC=1,D_NUMP
   ENDDO
 ENDDO
 
-#ifdef ACCGPU
+
+
+
+
 !$ACC END DATA
-#endif
-#ifdef OMPGPU
-!$OMP END TARGET DATA
-#endif
+
 !     ------------------------------------------------------------------
 END ASSOCIATE
 
