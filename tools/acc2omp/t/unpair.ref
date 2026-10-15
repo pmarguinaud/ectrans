@@ -1,0 +1,56 @@
+SUBROUTINE UNPAIR(N, A)
+! unpair.pl: one block per case
+INTEGER :: N, J
+REAL :: A(N)
+! pair, ACC first: DATA moves to the line of TARGET DATA
+
+
+
+
+
+!$ACC DATA PRESENT(A) &
+!$ACC& ASYNC(1)
+
+! pair, OMP first: the kernel moves to the OMP line, comment of the ACC half kept
+
+!$ACC PARALLEL LOOP FIRSTPRIVATE(N) PRESENT(A) ASYNC(1)
+
+
+! acc comment
+
+
+DO J=1,N
+  A(J) = 0.
+ENDDO
+! acc-only
+
+!$ACC WAIT(1)
+
+! omp-only, optional END
+
+
+
+! pair, END DATA + WAIT vs END TARGET DATA
+!$ACC WAIT(1)
+!$ACC END DATA
+
+
+
+
+
+! code pair: not removable
+#ifdef ACCGPU
+CALL ACC_SPECIFIC()
+#endif
+#ifdef OMPGPU
+CALL OMP_SPECIFIC()
+#endif
+! OMP directive without counterpart: not removable
+#ifdef ACCGPU
+!$ACC UPDATE HOST(A)
+#endif
+#ifdef OMPGPU
+!$OMP TARGET UPDATE FROM(A)
+!$OMP TARGET EXIT DATA MAP(DELETE:A)
+#endif
+END SUBROUTINE

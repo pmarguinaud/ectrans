@@ -1,0 +1,8 @@
+unpair.F90:6: pair, 1 OpenACC directives: removable
+unpair.F90:15: pair, 1 OpenACC directives: removable
+unpair.F90:26: acc-only, 1 OpenACC directives: removable
+unpair.F90:30: omp-only, 0 OpenACC directives: removable
+unpair.F90:34: pair, 2 OpenACC directives: removable
+unpair.F90:42: pair, 0 OpenACC directives: NOT removable: code at line 43
+unpair.F90:49: pair, 1 OpenACC directives: NOT removable: OpenMP directive at line 54 has no OpenACC counterpart
+# removable: 5 blocks, 5 OpenACC directives
