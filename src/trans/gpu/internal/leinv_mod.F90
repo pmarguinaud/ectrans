@@ -338,26 +338,26 @@ CONTAINS
     !    DO=1,5
     !       PIA_2=1+1+(1..5-1)*2 ...2+(0..4)*2 .... 2,4,6,8,10
 
-#ifdef OMPGPU
-    ! Directive incomplete -> putting more variables in SHARED() triggers internal compiler error
-    ! ftn-7991: INTERNAL COMPILER ERROR:  "Too few arguments on the stack"
-    !$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO COLLAPSE(2) &
-    !$OMP& PRIVATE(KM,IS,J) &
-    !$OMP& SHARED(D,R,KF_LEG,ZINP,IIN_STRIDES0,IIN0_STRIDES0) MAP(TO:KF_LEG)
-#endif
-#ifdef ACCGPU
+
+
+
     !$ACC PARALLEL LOOP COLLAPSE(2) PRIVATE(KM,IS,J) &
     !$ACC& FIRSTPRIVATE(KF_LEG,IIN_STRIDES0,IIN0_STRIDES0) DEFAULT(NONE) &
     !$ACC& ASYNC(1) PRESENT(D_MYMS,D_NUMP,ZINP,ZINP0,PIA,R_NSMAX,D_OFFSETS_GEMM2)
-#endif
+
+
+
+
+
+
     DO KMLOC=1,D_NUMP
       DO JK=1,2*KF_LEG
         KM =  D_MYMS(KMLOC)
         IS  = 1+MOD(R_NSMAX-KM+1,2)
         IF(KM /= 0) THEN
-#ifdef ACCGPU
+
           !$ACC LOOP SEQ
-#endif
+
           DO J=1,(R_NSMAX-KM+3)/2
             ZINP(JK+(J-1)*IIN_STRIDES0+D_OFFSETS_GEMM2(KMLOC)*IIN_STRIDES0)=PIA(JK,IS+1+(J-1)*2,KMLOC)
           ENDDO
@@ -369,9 +369,9 @@ CONTAINS
           ENDDO
 #endif
         ELSEIF (MOD((JK-1),2) == 0) THEN
-#ifdef ACCGPU
+
           !$ACC LOOP SEQ
-#endif
+
           DO J=1,(R_NSMAX+3)/2
             ZINP0((JK-1)/2+1+(J-1)*IIN0_STRIDES0) = PIA(JK,IS+1+(J-1)*2,KMLOC)
           ENDDO
@@ -387,9 +387,9 @@ CONTAINS
     ENDDO
 
     IF (LSYNC_TRANS) THEN
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(440,0)
       CALL MPL_BARRIER(MPL_ALL_MS_COMM,CDSTRING='')
       CALL GSTATS(440,1)
@@ -397,12 +397,12 @@ CONTAINS
     CALL GSTATS(424,0)
 
     IF (IMLOC0(1) > 0) THEN
-#ifdef OMPGPU
-      !$OMP TARGET DATA USE_DEVICE_ADDR(ZAS0,ZINP0,ZOUTS0)
-#endif
-#ifdef ACCGPU
+
       !$ACC HOST_DATA USE_DEVICE(ZAS0,ZINP0,ZOUTS0)
-#endif
+
+
+
+
       CALL HIP_DGEMM_BATCHED( &
         & 'N', 'T', &
         & KF_LEG, G_NDGLU(0), (R_NSMAX+3)/2, &
