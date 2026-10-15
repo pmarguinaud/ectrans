@@ -383,44 +383,44 @@ CONTAINS
     ENDIF
     CALL GSTATS(414,1)
 
-#ifdef OMPGPU
-    !$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO COLLAPSE(2) PRIVATE(KM,IS) &
-    !$OMP& SHARED(D,R,KF_FS,IOUT_STRIDES0,ZOUT,POA1)
-#endif
-#ifdef ACCGPU
+
     !$ACC PARALLEL LOOP COLLAPSE(2) PRIVATE(KM,IS) FIRSTPRIVATE(KF_FS,IOUT_STRIDES0,IOUT0_STRIDES0) &
     !$ACC& DEFAULT(NONE) &
     !$ACC& ASYNC(1) PRESENT(ZOUT,ZOUT0,D_MYMS,D_NUMP,R_NTMAX,R_NSMAX,POA1,D_OFFSETS_GEMM2)
-#endif
+
+
+
+
+
     DO KMLOC=1,D_NUMP
       DO JF=1,2*KF_FS
         KM = D_MYMS(KMLOC)
         IS  = 1+MOD(R_NTMAX-KM+1,2)
         IF (KM /= 0) THEN
-#ifdef ACCGPU
+
           !$ACC LOOP SEQ
-#endif
+
           DO J=1,(R_NSMAX-KM+3)/2
             POA1(JF,IS+1+(J-1)*2,KMLOC) = ZOUT(JF+(J-1)*IOUT_STRIDES0+D_OFFSETS_GEMM2(KMLOC)*IOUT_STRIDES0)
           ENDDO
         ELSEIF (MOD(JF-1,2) == 0) THEN
-#ifdef ACCGPU
+
           !$ACC LOOP SEQ
-#endif
+
           DO J=1,(R_NSMAX+3)/2
             POA1(JF,IS+1+(J-1)*2,KMLOC) = ZOUT0((JF-1)/2+1+(J-1)*IOUT0_STRIDES0)
           ENDDO
         ENDIF
       ENDDO
     ENDDO
-#ifdef OMPGPU
-    !$OMP END TARGET DATA
-#endif
-#ifdef ACCGPU
     !$ACC WAIT(1)
-
     !$ACC END DATA
-#endif
+
+
+
+
+
+
 
     IF (LHOOK) CALL DR_HOOK('LE_DGEMM',1,ZHOOK_HANDLE)
     !     ------------------------------------------------------------------
