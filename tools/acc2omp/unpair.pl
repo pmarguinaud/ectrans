@@ -230,10 +230,13 @@ sub plan
   my $next = 0;         # first OpenMP directive not yet passed
   my $free = $b->{first};
   my %taken;
+  my @cmt = @$cA;                      # comments of the OpenACC half, in line order
   for my $d (@$A)
   {
     my ($l0, $l1) = @$d;
     my $n = $l1 - $l0 + 1;
+    my @before;                         # comments just before this directive move with it
+    push(@before, shift(@cmt)) while (@cmt && $cmt[0] < $l0);
     my $kind = &accKind($d->[2]);
     my $target;
     if ($kind ne 'OTHER')
@@ -253,6 +256,8 @@ sub plan
       die "compute construct at line " . ($l0 + 1) . " cannot be put on the line of its OpenMP counterpart\n";
     }
     die "no room for the directive at line " . ($l0 + 1) . "\n" if ($p + $n - 1 > $b->{last});
+    die "no room for the comments before the directive at line " . ($l0 + 1) . "\n" if ($p - @before < $free);
+    $new{$p - @before + $_} = $lines->[$before[$_]] for (0 .. $#before);
     $new{$p + $_} = $lines->[$l0 + $_] for (0 .. $n - 1);
     $taken{$p + $_} = 1 for (0 .. $n - 1);
     push @notes, sprintf("line %d -> %d%s", $l0 + 1, $p + 1, $kind eq 'COMPUTE' ? ' (kernel)' : '') if ($p != $l0);
@@ -263,11 +268,9 @@ sub plan
     next if ($used[$q] || $okind[$q] eq 'END-COMPUTE');
     die "OpenMP directive at line " . ($O->[$q][0] + 1) . " has no OpenACC counterpart\n";
   }
-  # comments of the OpenACC half, where their line is free
-  for (@$cA)
-  {
-    $new{$_} = $lines->[$_] unless $taken{$_};
-  }
+  # comments after the last directive: on the next free lines
+  die "no room for the comments at the end of the OpenACC half\n" if ($free + @cmt - 1 > $b->{last});
+  $new{$free + $_} = $lines->[$cmt[$_]] for (0 .. $#cmt);
   return (\%new, scalar(@$A), \@notes);
 }
 

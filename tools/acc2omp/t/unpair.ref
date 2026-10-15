@@ -12,11 +12,11 @@ REAL :: A(N)
 !$ACC& ASYNC(1)
 
 ! pair, OMP first: the kernel moves to the OMP line, comment of the ACC half kept
-
+! acc comment
 !$ACC PARALLEL LOOP FIRSTPRIVATE(N) PRESENT(A) ASYNC(1)
 
 
-! acc comment
+
 
 
 DO J=1,N
