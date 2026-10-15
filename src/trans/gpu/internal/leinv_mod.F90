@@ -260,12 +260,12 @@ CONTAINS
     IMLOC0 = FINDLOC(D_MYMS,0)
     IF (IMLOC0(1) > 0) THEN
       ! compute m=0 in double precision
-#ifdef OMPGPU
-      !$OMP TARGET DATA USE_DEVICE_ADDR(ZAA0,ZINP0,ZOUTA0)
-#endif
-#ifdef ACCGPU
+
       !$ACC HOST_DATA USE_DEVICE(ZAA0,ZINP0,ZOUTA0)
-#endif
+
+
+
+
       CALL HIP_DGEMM_BATCHED( &
         & 'N', 'T', &
         & KF_LEG, G_NDGLU(0), (R_NSMAX+2)/2, &
@@ -275,12 +275,12 @@ CONTAINS
         & 0.0_JPRD, &
         & C_LOC(ZOUTA0), IOUT0_STRIDES0, 0, &
         & 1, HIP_STREAM, C_LOC(ALLOCATOR%PTR))
-#ifdef ACCGPU
+
+
+
+
       !$ACC END HOST_DATA
-#endif
-#ifdef OMPGPU
-      !$OMP END TARGET DATA
-#endif
+
    ENDIF
 
     DO KMLOC=1,D_NUMP
@@ -295,12 +295,12 @@ CONTAINS
       NS(IMLOC0(1)) = 0
       KS(IMLOC0(1)) = 0
     ENDIF
-#ifdef OMPGPU
-      !$OMP TARGET DATA USE_DEVICE_ADDR(ZAA,ZINP,ZOUTA)
-#endif
-#ifdef ACCGPU
+
       !$ACC HOST_DATA USE_DEVICE(ZAA,ZINP,ZOUTA)
-#endif
+
+
+
+
     CALL HIP_GEMM( &
         & NCUR_RESOL, 11, & ! unique identifier
         & 'N', 'T', &
@@ -311,17 +311,17 @@ CONTAINS
         & 0.0_JPRBT, &
         & C_LOC(ZOUTA), IOUT_STRIDES0, COFFSETS, &
         & D_NUMP, HIP_STREAM, C_LOC(ALLOCATOR%PTR))
-#ifdef ACCGPU
+
+
+
+
       !$ACC END HOST_DATA
-#endif
-#ifdef OMPGPU
-      !$OMP END TARGET DATA
-#endif
+
 
     IF (LSYNC_TRANS) THEN
-#ifdef ACCGPU
+
       !$ACC WAIT(1)
-#endif
+
       CALL GSTATS(444,0)
       CALL MPL_BARRIER(MPL_ALL_MS_COMM,CDSTRING='')
       CALL GSTATS(444,1)
